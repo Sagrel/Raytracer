@@ -1,4 +1,10 @@
 mod vec3;
+use std::time::Instant;
+
+use image::ImageBuffer;
+use rand::thread_rng;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use vec3::Vec3;
 
 mod shapes;
@@ -14,172 +20,127 @@ use materials::Material;
 
 use rand::prelude::Rng;
 
-use std::sync::Arc;
-use std::sync::mpsc::channel;
-use threadpool::ThreadPool;
+const WIDHT: usize = 1366;
+const HEIGHT: usize = 768;
+const SAMPLES: usize = 10;
+const RATIO: f32 = WIDHT as f32 / HEIGHT as f32;
+const TTL: i32 = 50;
 
-use std::time::Duration;
+fn create_world() -> Vec<Shape> {
+    let mut world: Vec<Shape> = Vec::new();
 
-use show_image::{ImageInfo, KeyCode, make_window};
+    let ground_material = Material::Diffuse(Vec3::new(0.5, 0.5, 0.5));
+    world.push(Shape::Sphere(Vec3::new(0.0, -1000.0, 0.0), 1000.0, ground_material));
 
+    let mut rng = thread_rng();
+    for a in -11..11 {
+        for b in -11..11 {
+            let a = a as f32;
+            let b = b as f32;
+            let choose_mat = rng.gen::<f64>();
+            let center = Vec3::new(a + 0.9*rng.gen::<f32>(), 0.2, b + 0.9*rng.gen::<f32>());
 
+            let mut random_color = || {
+                Vec3::new(rng.gen(), rng.gen(), rng.gen())
+            };
 
-fn main()
-{
-    const WIDHT : usize = 1920;
-    const HEIGHT : usize = 1080;
-    const RATIO : f32 = WIDHT as f32 / HEIGHT as f32;   
-
-    let mut pos = Vec3::new(-2.0, 2.0, 1.0);
-    let mut pitch : f32 = 0.0;
-    let mut yawn : f32 = 0.0;
-    let up = Vec3::new(0.0, 1.0, 0.0);
-    let fov = 90.0;
-
-    
-    
-    let mut world : Vec<Shape>= Vec::new();
-
-    let ambient_color = Vec3::new(0.5, 0.7, 1.0);
-
-    world.push(Shape::Sphere(Vec3::new(0.0, 0.0, -1.0), 0.5, Material::Diffuse(Vec3::new(0.8, 0.3, 0.3))));
-    world.push(Shape::Sphere(Vec3::new(0.0, -100.5, -1.0), 100.0, Material::Diffuse(Vec3::new(0.8, 0.8, 0.0))));
-    world.push(Shape::Sphere(Vec3::new(1.0, 0.0, -1.0), 0.5, Material::Metal(Vec3::new(0.8, 0.6, 0.2), 0.0)));
-    world.push(Shape::Sphere(Vec3::new(-1.0, 0.0, -1.0), 0.5, Material::Dielectric(1.5)));
-    world.push(Shape::Sphere(Vec3::new(-1.0, 0.0, -1.0), -0.45, Material::Dielectric(1.5)));
-
-    let _ = Shape::Plane(Vec3::new(-1.0, 0.0, -10.0), -0.45, Material::Diffuse(Vec3::new(0.8, 0.3, 0.3)));
-
-    
-    let pool = ThreadPool::new(12);
-    let shared_world = Arc::new(world);
-
-
-    
-    // Create a window and display the image.
-    let window = make_window("image").unwrap();
-    
-    let mut image = vec![Vec3::zero(); WIDHT * HEIGHT];
-
-    let mut samples = 1.0;
-    let mut reiniciar = true;
-
-    while let Ok(event) = window.wait_key(Duration::from_millis(20)) 
-    {      
-        let direction = Vec3::new(0.0,0.0,-1.0);
-
-        let forward = direction.rotate_x(pitch).rotate_y(-yawn);
-        let right = Vec3::cross(forward, up).normalized() * -1.0;
-        let camera = Camera::new(pos, pos + forward, up, fov, RATIO);
-        if let Some(event) = event 
-        {
-            reiniciar = true;
-            if event.key == KeyCode::Escape 
-            {
-                break;
-            }
-            if event.key == KeyCode::Character("W".to_string())
-            {
-                samples = 1.0;
-                pos = pos + forward;
-            }
-            if event.key == KeyCode::Character("S".to_string())
-            {
-                samples = 1.0;
-                pos = pos - forward;
-            }
-            if event.key == KeyCode::Character("A".to_string())
-            {
-                samples = 1.0;
-                pos = pos - right;
-            }
-            if event.key == KeyCode::Character("D".to_string())
-            {
-                samples = 1.0;
-                pos = pos + right;
-            }
-            if event.key == KeyCode::ArrowUp
-            {
-                samples = 1.0;
-                pitch += 0.2;
-            }
-            if event.key == KeyCode::ArrowDown
-            {
-                samples = 1.0;
-                pitch -= 0.2;
-            }
-            if event.key == KeyCode::ArrowLeft
-            {
-                samples = 1.0;
-                yawn += 0.2;
-            }
-            if event.key == KeyCode::ArrowRight
-            {
-                samples = 1.0;
-                yawn -= 0.2;
-            }
-        }
-
-        let (tx, rx) = channel();
-
-        for f in 0..HEIGHT 
-        {
-    
-            let local_world = shared_world.clone();
-            let child_tx = tx.clone();
-    
-            pool.execute(move || 
-            {
-                let mut rng = rand::thread_rng();
-                let mut fila = vec![Vec3::zero(); WIDHT];
-                for c in 0..WIDHT 
-                {    
-                    let x_offset = (c as f32 + rng.gen::<f32>()) / WIDHT as f32;
-                    let y_offset = (f as f32 + rng.gen::<f32>()) / HEIGHT as f32;
-                    let ray = camera.get_pixel(x_offset, y_offset);         
-    
-                    fila[c] = ray.bounce(&local_world, ambient_color, 1024);          
+            if (center -  Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
+                
+                
+                if choose_mat < 0.8 {
+                    // diffuse
+                    let albedo = random_color() * random_color();
+                    world.push(Shape::Sphere(center, 0.2, Material::Diffuse(albedo)));
+                } else if choose_mat < 0.95 {
+                    // metal
+                    let albedo = random_color() * 0.5 + Vec3::new(0.5, 0.5, 0.5);
+                    let fuzz = rng.gen::<f32>() * 0.5;
+                    world.push(Shape::Sphere(center, 0.2, Material::Metal(albedo, fuzz)));
+                } else {
+                    // glass
+                    world.push(Shape::Sphere(center, 0.2, Material::Dielectric(1.5)));
                 }
-                child_tx.send((f, fila)).unwrap();
-            });
+            }
         }
-    
-        drop(tx);    
-            
-        for (f, color) in rx.iter()
-        {
-            for c in 0..WIDHT 
-            {
-                if reiniciar
-                {
-                    image[c + f * WIDHT] = color[c];    // TODO Esto deberia reiniciar la imagen cada vez que nos movemos pero no lo hace
-                }
-                else
-                {
-                    image[c + f * WIDHT] = (image[c + f * WIDHT] * samples + color[c]) / (samples + 1.0);
-                }
-            }        
-        }
-        reiniciar = false;
-        samples += 1.0;
-    
-        let mut pixeles = vec![255; WIDHT * HEIGHT * 3];
-    
-        let mut i = WIDHT * HEIGHT * 3 - 3;
-        for color in image.iter()
-        {
-            pixeles[i] = (color.x * 255.0) as u8;
-            pixeles[i+1] = (color.y * 255.0) as u8;
-            pixeles[i+2] = (color.z * 255.0) as u8;
-            i -= 3
-        }
-    
-    
-        let picture = (pixeles, ImageInfo::rgb8(WIDHT, HEIGHT));
-        
-        window.set_image(&picture, "image-001").unwrap();
     }
 
-    show_image::stop().unwrap();
+    world.push(Shape::Sphere(
+        Vec3::new(0.0, 1.0, 0.0),
+        1.0,
+        Material::Dielectric(1.5),
+    ));
+    world.push(Shape::Sphere(
+        Vec3::new(-4.0, 1.0, 0.0),
+        1.0,
+        Material::Diffuse(Vec3::new(0.4, 0.2, 0.1)),
+    ));
+    world.push(Shape::Sphere(
+        Vec3::new(4.0, 1.0, 0.0),
+        1.0,
+        Material::Metal(Vec3::new(0.7, 0.6, 0.5), 0.0),
+    ));
 
+    world
+}
+
+fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
+
+    // TODO SPEED make this iter over the samples instead of the pixels
+    (0..(HEIGHT * WIDHT))
+        .into_iter()    
+        //.into_par_iter()
+        .map(|idx| {
+            let f = idx / WIDHT;
+            let c = idx % WIDHT;
+            let mut color = Vec3::zero();
+
+            let mut rng = rand::thread_rng();
+
+            for _ in 0..SAMPLES {
+                let x_offset = (c as f32 + rng.gen::<f32>()) / WIDHT as f32;
+                let y_offset = (f as f32 + rng.gen::<f32>()) / HEIGHT as f32;
+                let ray = camera.get_pixel(x_offset, y_offset);
+
+                color = color + ray.bounce(world, ambient_light, TTL);
+            }
+
+            color / SAMPLES as f32
+        })
+        .collect()
+}
+
+fn print_image(pixels: &[Vec3]) {
+    let mut imgbuf = ImageBuffer::new(WIDHT as u32, HEIGHT as u32);
+
+    for (c, f, pixel) in imgbuf.enumerate_pixels_mut() {
+        let f = HEIGHT -1 - f as usize;
+        let color = pixels[c as usize + f  * WIDHT] * 255.0;
+
+        *pixel = image::Rgb([color.x as u8, color.y as u8, color.z as u8]);
+    }
+
+    imgbuf.save("salida.png").unwrap();
+}
+
+fn main() {
+    let camera = Camera::new(
+        Vec3::new(-2.0, 2.0, 1.0),
+        Vec3::new(0.0, 0.0, -1.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        90.0,
+        RATIO,
+    );
+    let ambient_color = Vec3::new(0.5, 0.7, 1.0);
+
+    let now = Instant::now();    
+    let world = create_world();
+    println!("Tiempo de creacion del mundo: {}s", now.elapsed().as_secs());
+
+    let now = Instant::now();    
+    let pixels = raytrace(&world, camera, ambient_color);
+    println!("Tiempo de raytracing: {}s", now.elapsed().as_secs());
+    
+    let now = Instant::now();    
+    print_image(&pixels);
+    println!("Tiempo de guardar la imagen: {}s", now.elapsed().as_secs());
 }

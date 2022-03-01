@@ -22,7 +22,7 @@ impl Hit
 {
     pub fn new(t : f32, p : Vec3, n : Vec3, m : Material) -> Hit
     {
-        Hit{t : t, point : p, normal : n, material : m}
+        Hit{t, point : p, normal : n, material : m}
     }
 }
 
@@ -38,7 +38,7 @@ impl Ray
         self.origin + self.direction * t
     }
 
-    pub fn first_hit(&self, world : &Vec<Shape>) -> Option<Hit>
+    pub fn first_hit(&self, world : &[Shape]) -> Option<Hit>
     {
         let mut closest : Option<Hit> = None;
 
@@ -54,10 +54,10 @@ impl Ray
             }
         }
 
-        return closest;
+        closest
     }
 
-    pub fn bounce(&self, world : &Vec<Shape>, ambient_light : Vec3, ttl : i32) -> Vec3
+    pub fn bounce(&self, world : &[Shape], ambient_light : Vec3, ttl : i32) -> Vec3
     {
         if ttl <= 0 { return ambient_light; }
 
@@ -81,7 +81,7 @@ impl Ray
             None =>
             {
                 let t = 0.5 * (self.direction.y + 1.0);
-                return Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + ambient_light * t;
+                Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + ambient_light * t
             }   
         }          
     }

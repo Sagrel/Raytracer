@@ -35,7 +35,7 @@ impl Shape
 
                 let point = ray.point(t);
 
-                return Some(Hit::new(t, point, (point - *center).normalized(), *mat)); 
+                Some(Hit::new(t, point, (point - *center).normalized(), *mat)) 
             },
             Shape::Plane(normal, distance, mat) => 
             {
@@ -48,7 +48,7 @@ impl Shape
 
                 if t < 0.0 { return None; }
 
-                return Some(Hit::new(t, ray.point(t), *normal, *mat));
+                Some(Hit::new(t, ray.point(t), *normal, *mat))
             }
         }
     }
