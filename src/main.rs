@@ -1,4 +1,6 @@
 mod vec3;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
 
 use image::ImageBuffer;
@@ -22,9 +24,9 @@ use rand::prelude::Rng;
 
 const WIDHT: usize = 300;
 const HEIGHT: usize = 300;
-const SAMPLES: usize = 1;
+const SAMPLES: usize = 100;
 const RATIO: f32 = WIDHT as f32 / HEIGHT as f32;
-const TTL: i32 = 10;
+const TTL: i32 = 1024;
 
 fn create_world() -> Vec<Shape> {
     let mut world: Vec<Shape> = Vec::new();
@@ -86,45 +88,34 @@ fn create_world() -> Vec<Shape> {
 fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
     optick::event!();
 
-    let samples = (0..SAMPLES)
-        .into_iter()
-        .map(|_| {
-            (0..(HEIGHT * WIDHT))
-                .into_iter()
-                .map(|idx| {
-                    let mut rng = rand::thread_rng();
-                    let f = idx / WIDHT;
-                    let c = idx % WIDHT;
+    let res = Arc::new(Mutex::new(vec![Vec3::zero(); HEIGHT * WIDHT]));
 
-                    let x_offset = (c as f32 + rng.gen::<f32>()) / WIDHT as f32;
-                    let y_offset = (f as f32 + rng.gen::<f32>()) / HEIGHT as f32;
-                    let ray = camera.get_pixel(x_offset, y_offset);
+    (0..SAMPLES).into_par_iter().for_each(|_| {
+        let sample = (0..(HEIGHT * WIDHT)).into_iter().map(|idx| {
+            let mut rng = rand::thread_rng();
+            let f = idx / WIDHT;
+            let c = idx % WIDHT;
 
-                    ray.bounce(world, ambient_light, TTL)
-                })
+            let x_offset = (c as f32 + rng.gen::<f32>()) / WIDHT as f32;
+            let y_offset = (f as f32 + rng.gen::<f32>()) / HEIGHT as f32;
+            let ray = camera.get_pixel(x_offset, y_offset);
+
+            ray.bounce(world, ambient_light, TTL)
         });
-    
-    let mut res = vec![Vec3::zero(); HEIGHT * WIDHT];
-
-    for sample in samples {
+        let mut res = res.lock().unwrap();
         for (idx, pixel) in sample.enumerate() {
-            res[idx] =  res[idx] + pixel;
+            res[idx] = res[idx] + pixel;
         }
-    }
+    });
 
-    for pixel in res.iter_mut(){
+    // https://users.rust-lang.org/t/take-ownership-of-arc-mutex-t-inner-value/38097/2
+    let mut res = Arc::try_unwrap(res).unwrap().into_inner().unwrap();
+
+    for pixel in res.iter_mut() {
         *pixel = *pixel / SAMPLES as f32;
     }
 
     res
-    
-
-        /*
-        .reduce(|a, b| {
-            a.iter().zip(b.iter()).map(|(a, b)| *a + *b).collect() // TODO SPEED Avoid collecting here
-        })
-        .unwrap().into_iter().map(|pixel| pixel / SAMPLES as f32).collect()// TODO SPEED Avoid collecting here
-        */
 }
 
 fn print_image(pixels: &[Vec3]) {
@@ -165,7 +156,7 @@ fn main() {
     let pixels = raytrace(&world, camera, ambient_color);
     println!("Tiempo de raytracing: {}s", now.elapsed().as_secs());
 
-    optick::stop_capture("raytracing_perf"); 
+    optick::stop_capture("raytracing_perf");
 
     let now = Instant::now();
     print_image(&pixels);
