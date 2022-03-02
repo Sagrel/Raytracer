@@ -58,9 +58,9 @@ impl Ray
     }
 
     pub fn bounce(&self, world : &[Shape], ambient_light : Vec3, ttl : i32) -> Vec3
-    {
+    {   
+        optick::event!();
         if ttl <= 0 { return ambient_light; }
-
         let hit = self.first_hit(world);
 
         match hit
