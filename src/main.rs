@@ -24,7 +24,7 @@ use rand::prelude::Rng;
 
 const WIDHT: usize = 300;
 const HEIGHT: usize = 300;
-const SAMPLES: usize = 100;
+const SAMPLES: usize = 10;
 const RATIO: f32 = WIDHT as f32 / HEIGHT as f32;
 const TTL: i32 = 1024;
 
@@ -90,8 +90,9 @@ fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
 
     let res = Arc::new(Mutex::new(vec![Vec3::zero(); HEIGHT * WIDHT]));
 
-    (0..SAMPLES).into_par_iter().for_each(|_| {
-        let sample = (0..(HEIGHT * WIDHT)).into_iter().map(|idx| {
+    (0..SAMPLES).into_par_iter().for_each(|i| {
+        optick::register_thread(&format!("thread {}", i));
+        let sample : Vec<_> = (0..(HEIGHT * WIDHT)).into_iter().map(|idx| {
             let mut rng = rand::thread_rng();
             let f = idx / WIDHT;
             let c = idx % WIDHT;
@@ -101,10 +102,11 @@ fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
             let ray = camera.get_pixel(x_offset, y_offset);
 
             ray.bounce(world, ambient_light, TTL)
-        });
+        }).collect();
+        
         let mut res = res.lock().unwrap();
-        for (idx, pixel) in sample.enumerate() {
-            res[idx] = res[idx] + pixel;
+        for (idx, pixel) in sample.iter().enumerate() {
+            res[idx] = res[idx] + *pixel;
         }
     });
 
