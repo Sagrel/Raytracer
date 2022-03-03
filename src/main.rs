@@ -22,10 +22,10 @@ use materials::Material;
 
 use rand::prelude::Rng;
 
-const WIDHT: usize = 300;
-const HEIGHT: usize = 300;
-const SAMPLES: usize = 10;
-const RATIO: f32 = WIDHT as f32 / HEIGHT as f32;
+const WIDHT: usize = 1366;
+const HEIGHT: usize = 768;
+const SAMPLES: usize = 100;
+const RATIO: f64 = WIDHT as f64 / HEIGHT as f64;
 const TTL: i32 = 1024;
 
 fn create_world() -> Vec<Shape> {
@@ -41,10 +41,10 @@ fn create_world() -> Vec<Shape> {
     let mut rng = thread_rng();
     for a in -11..11 {
         for b in -11..11 {
-            let a = a as f32;
-            let b = b as f32;
+            let a = a as f64;
+            let b = b as f64;
             let choose_mat = rng.gen::<f64>();
-            let center = Vec3::new(a + 0.9 * rng.gen::<f32>(), 0.2, b + 0.9 * rng.gen::<f32>());
+            let center = Vec3::new(a + 0.9 * rng.gen::<f64>(), 0.2, b + 0.9 * rng.gen::<f64>());
 
             let mut random_color = || Vec3::new(rng.gen(), rng.gen(), rng.gen());
 
@@ -56,7 +56,7 @@ fn create_world() -> Vec<Shape> {
                 } else if choose_mat < 0.95 {
                     // metal
                     let albedo = random_color() * 0.5 + Vec3::new(0.5, 0.5, 0.5);
-                    let fuzz = rng.gen::<f32>() * 0.5;
+                    let fuzz = rng.gen::<f64>() * 0.5;
                     world.push(Shape::Sphere(center, 0.2, Material::Metal(albedo, fuzz)));
                 } else {
                     // glass
@@ -86,24 +86,24 @@ fn create_world() -> Vec<Shape> {
 }
 
 fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
-    optick::event!();
-
     let res = Arc::new(Mutex::new(vec![Vec3::zero(); HEIGHT * WIDHT]));
 
-    (0..SAMPLES).into_par_iter().for_each(|i| {
-        optick::register_thread(&format!("thread {}", i));
-        let sample : Vec<_> = (0..(HEIGHT * WIDHT)).into_iter().map(|idx| {
-            let mut rng = rand::thread_rng();
-            let f = idx / WIDHT;
-            let c = idx % WIDHT;
+    (0..SAMPLES).into_par_iter().for_each(|_| {
+        let sample: Vec<_> = (0..(HEIGHT * WIDHT))
+            .into_iter()
+            .map(|idx| {
+                let mut rng = rand::thread_rng();
+                let f = idx / WIDHT;
+                let c = idx % WIDHT;
 
-            let x_offset = (c as f32 + rng.gen::<f32>()) / WIDHT as f32;
-            let y_offset = (f as f32 + rng.gen::<f32>()) / HEIGHT as f32;
-            let ray = camera.get_pixel(x_offset, y_offset);
+                let x_offset = (c as f64 + rng.gen::<f64>()) / WIDHT as f64;
+                let y_offset = (f as f64 + rng.gen::<f64>()) / HEIGHT as f64;
+                let ray = camera.get_pixel(x_offset, y_offset);
 
-            ray.bounce(world, ambient_light, TTL)
-        }).collect();
-        
+                ray.bounce(world, ambient_light, TTL)
+            })
+            .collect();
+
         let mut res = res.lock().unwrap();
         for (idx, pixel) in sample.iter().enumerate() {
             res[idx] = res[idx] + *pixel;
@@ -114,7 +114,7 @@ fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
     let mut res = Arc::try_unwrap(res).unwrap().into_inner().unwrap();
 
     for pixel in res.iter_mut() {
-        *pixel = *pixel / SAMPLES as f32;
+        *pixel = *pixel / SAMPLES as f64;
     }
 
     res
@@ -148,19 +148,15 @@ fn main() {
         WIDHT, HEIGHT, SAMPLES, TTL
     );
 
-    let now = Instant::now();
     let world = create_world();
-    println!("Tiempo de creacion del mundo: {}s", now.elapsed().as_secs());
 
-    optick::start_capture();
+    //optick::start_capture();
 
     let now = Instant::now();
     let pixels = raytrace(&world, camera, ambient_color);
     println!("Tiempo de raytracing: {}s", now.elapsed().as_secs());
 
-    optick::stop_capture("raytracing_perf");
+    //optick::stop_capture("raytracing_perf");
 
-    let now = Instant::now();
     print_image(&pixels);
-    println!("Tiempo de guardar la imagen: {}s", now.elapsed().as_secs());
 }

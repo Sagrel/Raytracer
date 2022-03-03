@@ -1,20 +1,17 @@
-use crate::vec3::Vec3;
 use crate::ray::Ray;
+use crate::vec3::Vec3;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Camera
-{
-    pub lower_left_corner : Vec3,
-    pub horizontal : Vec3,
-    pub vertical : Vec3,
-    pub origin : Vec3
+pub struct Camera {
+    pub lower_left_corner: Vec3,
+    pub horizontal: Vec3,
+    pub vertical: Vec3,
+    pub origin: Vec3,
 }
 
-impl Camera
-{
-    pub fn new(look_from : Vec3, look_at : Vec3, up : Vec3, fov : f32, aspect_ratio : f32) -> Camera
-    {
-        let theta = fov * std::f32::consts::PI / 180.0;
+impl Camera {
+    pub fn new(look_from: Vec3, look_at: Vec3, up: Vec3, fov: f64, aspect_ratio: f64) -> Camera {
+        let theta = fov * std::f64::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
 
@@ -22,14 +19,19 @@ impl Camera
         let u = Vec3::cross(up, w).normalized();
         let v = Vec3::cross(w, u);
 
-        Camera{lower_left_corner : look_from - u * half_width - v * half_height - w, 
-                horizontal : u * 2.0 * half_width,
-                vertical : v * 2.0 * half_height,
-                origin : look_from}
+        Camera {
+            lower_left_corner: look_from - u * half_width - v * half_height - w,
+            horizontal: u * 2.0 * half_width,
+            vertical: v * 2.0 * half_height,
+            origin: look_from,
+        }
     }
 
-    pub fn get_pixel(&self, x_offset : f32, y_offset : f32) -> Ray
-    {
-        Ray::new(self.origin, self.lower_left_corner + self.horizontal * x_offset + self.vertical * y_offset - self.origin)
+    pub fn get_pixel(&self, x_offset: f64, y_offset: f64) -> Ray {
+        Ray::new(
+            self.origin,
+            self.lower_left_corner + self.horizontal * x_offset + self.vertical * y_offset
+                - self.origin,
+        )
     }
 }

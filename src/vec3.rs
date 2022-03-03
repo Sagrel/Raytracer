@@ -1,16 +1,16 @@
 use std::ops;
 
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Vec3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 impl Vec3 {
-    pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
+    pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
         Vec3 { x, y, z }
     }
 
@@ -22,7 +22,7 @@ impl Vec3 {
         }
     }
 
-    pub fn dot(a: Vec3, b: Vec3) -> f32 {
+    pub fn dot(a: Vec3, b: Vec3) -> f64 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
 
@@ -38,7 +38,7 @@ impl Vec3 {
         a - b * Vec3::dot(a, b) * 2.0
     }
 
-    pub fn refract(a: Vec3, b: Vec3, ni_over_nt: f32) -> Option<Vec3> {
+    pub fn refract(a: Vec3, b: Vec3, ni_over_nt: f64) -> Option<Vec3> {
         let v = a.normalized();
         let dt = Vec3::dot(a, b);
         let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
@@ -63,7 +63,7 @@ impl Vec3 {
     }
 
     /*
-    pub fn rotate_x(&self, a: f32) -> Vec3 {
+    pub fn rotate_x(&self, a: f64) -> Vec3 {
         Vec3::new(
             self.x,
             self.y * a.cos() - self.z * a.sin(),
@@ -71,7 +71,7 @@ impl Vec3 {
         )
     }
 
-    pub fn rotate_y(&self, a: f32) -> Vec3 {
+    pub fn rotate_y(&self, a: f64) -> Vec3 {
         Vec3::new(
             self.x * a.cos() + self.z * a.sin(),
             self.y,
@@ -80,7 +80,7 @@ impl Vec3 {
     }
     */
 
-    pub fn length(self) -> f32 {
+    pub fn length(self) -> f64 {
         Vec3::dot(self, self).sqrt()
     }
 
@@ -113,10 +113,10 @@ impl ops::Mul<Vec3> for Vec3 {
     }
 }
 
-impl ops::Mul<f32> for Vec3 {
+impl ops::Mul<f64> for Vec3 {
     type Output = Vec3;
 
-    fn mul(self, _rhs: f32) -> Vec3 {
+    fn mul(self, _rhs: f64) -> Vec3 {
         Vec3::new(self.x * _rhs, self.y * _rhs, self.z * _rhs)
     }
 }
@@ -129,10 +129,10 @@ impl ops::Div<Vec3> for Vec3 {
     }
 }
 
-impl ops::Div<f32> for Vec3 {
+impl ops::Div<f64> for Vec3 {
     type Output = Vec3;
 
-    fn div(self, _rhs: f32) -> Vec3 {
+    fn div(self, _rhs: f64) -> Vec3 {
         Vec3::new(self.x / _rhs, self.y / _rhs, self.z / _rhs)
     }
 }

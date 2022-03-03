@@ -1,88 +1,88 @@
-use crate::vec3::Vec3;
-use crate::shapes::Shape;
+use std::cmp::Ordering;
+
 use crate::materials::Material;
+use crate::shapes::Shape;
+use crate::vec3::Vec3;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Ray
-{
-    pub origin : Vec3,
-    pub direction : Vec3
+pub struct Ray {
+    pub origin: Vec3,
+    pub direction: Vec3,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Hit
-{
-    pub t : f32,
-    pub point : Vec3,
-    pub normal : Vec3,
-    pub material : Material
+pub struct Hit {
+    pub t: f64,
+    pub point: Vec3,
+    pub normal: Vec3,
+    pub material: Material,
 }
 
-impl Hit
-{
-    pub fn new(t : f32, p : Vec3, n : Vec3, m : Material) -> Hit
-    {
-        Hit{t, point : p, normal : n, material : m}
+impl Hit {
+    pub fn new(t: f64, point: Vec3, normal: Vec3, material: Material) -> Hit {
+        Hit {
+            t,
+            point,
+            normal,
+            material,
+        }
     }
 }
 
-impl Ray
-{
-    pub fn new(o : Vec3, d : Vec3) -> Ray
-    {
-        Ray{origin : o, direction : d.normalized()}
+impl Ray {
+    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
+        Ray {
+            origin,
+            direction: direction.normalized(),
+        }
     }
 
-    pub fn point(&self, t : f32) -> Vec3
-    {
+    pub fn point(&self, t: f64) -> Vec3 {
         self.origin + self.direction * t
     }
 
-    pub fn first_hit(&self, world : &[Shape]) -> Option<Hit>
-    {
-        let mut closest : Option<Hit> = None;
+    pub fn first_hit(&self, world: &[Shape]) -> Option<Hit> {
+        let mut closest: Option<Hit> = None;
 
-        for shape in world 
-        {
+
+        for shape in world {
             let hit = shape.intersects(self);
 
-            match (hit, closest)
-            {
-                (Some(h), Some(c)) =>  if h.t < c.t { closest = hit },
-                (Some(_), None) =>  closest = hit ,
-                _ => ()
+            match (hit, closest) {
+                (Some(h), Some(c)) => {
+                    if h.t < c.t {
+                        closest = hit
+                    }
+                }
+                (Some(_), None) => closest = hit,
+                _ => (),
             }
         }
 
         closest
     }
 
-    pub fn bounce(&self, world : &[Shape], ambient_light : Vec3, ttl : i32) -> Vec3
-    {   
-        optick::event!();
-        if ttl <= 0 { return ambient_light; }
+    pub fn bounce(&self, world: &[Shape], ambient_light: Vec3, ttl: i32) -> Vec3 {
+        if ttl <= 0 {
+            return ambient_light;
+        }
         let hit = self.first_hit(world);
 
-        match hit
-        {
-            Some(h) =>  
-            {
+        match hit {
+            Some(h) => {
                 let res = h.material.scatter(self, h);
 
-                match res
-                {
-                    Some((scattered, attenuation)) =>
-                    {
+                match res {
+                    Some((scattered, attenuation)) => {
                         attenuation * scattered.bounce(world, ambient_light, ttl - 1)
-                    },
-                    None =>  Vec3::zero()
+                    }
+                    None => Vec3::zero(),
                 }
             }
-            None =>
-            {
+            None => {
                 let t = 0.5 * (self.direction.y + 1.0);
                 Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + ambient_light * t
-            }   
-        }          
+            }
+        }
     }
 }
