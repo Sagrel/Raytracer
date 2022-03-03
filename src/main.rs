@@ -24,7 +24,7 @@ use rand::prelude::Rng;
 
 const WIDHT: usize = 1366;
 const HEIGHT: usize = 768;
-const SAMPLES: usize = 100;
+const SAMPLES: usize = 20;
 const RATIO: f64 = WIDHT as f64 / HEIGHT as f64;
 const TTL: i32 = 1024;
 
@@ -100,7 +100,7 @@ fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
                 let y_offset = (f as f64 + rng.gen::<f64>()) / HEIGHT as f64;
                 let ray = camera.get_pixel(x_offset, y_offset);
 
-                ray.bounce(world, ambient_light, TTL)
+                ray.bounce(world, &ambient_light, TTL)
             })
             .collect();
 

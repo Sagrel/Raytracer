@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use crate::materials::Material;
 use crate::shapes::Shape;
 use crate::vec3::Vec3;
@@ -48,13 +46,12 @@ impl Ray {
             .reduce(|a, b| if a.t < b.t { a } else { b })
     }
 
-    pub fn bounce(&self, world: &[Shape], ambient_light: Vec3, ttl: i32) -> Vec3 {
+    pub fn bounce(&self, world: &[Shape], ambient_light: &Vec3, ttl: i32) -> Vec3 {
         if ttl <= 0 {
-            return ambient_light;
+            return *ambient_light;
         }
-        let hit = self.first_hit(world);
 
-        match hit {
+        match self.first_hit(world) {
             Some(h) => {
                 let res = h.material.scatter(self, h);
 
@@ -67,7 +64,7 @@ impl Ray {
             }
             None => {
                 let t = 0.5 * (self.direction.y + 1.0);
-                Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + ambient_light * t
+                Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + *ambient_light * t
             }
         }
     }

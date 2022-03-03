@@ -1,3 +1,5 @@
+use std::mem::discriminant;
+
 use crate::materials::Material;
 use crate::ray::{Hit, Ray};
 use crate::vec3::Vec3;
@@ -13,32 +15,32 @@ impl Shape {
             Shape::Sphere(center, radious, mat) => {
                 let o_c = ray.origin - *center;
                 let a = Vec3::dot(ray.direction, ray.direction);
-                let b = Vec3::dot(ray.direction, o_c) * 2.0;
+                let half_b = Vec3::dot(ray.direction, o_c);
                 let c = Vec3::dot(o_c, o_c) - radious * radious;
 
-                let mut raiz = b * b - 4.0 * a * c;
+                let discriminant = half_b * half_b - a * c;
 
-                if raiz.abs() < 0.05 {
-                    raiz = 0.0;
-                }
-
-                if raiz < 0.0 {
+                if discriminant < 0.0 {
                     return None;
                 }
 
-                raiz = raiz.sqrt();
+                let squared_discriminant = discriminant.sqrt();
 
-                let mut t = (-b - raiz) / (2.0 * a);
-                if t <= 0.0 {
-                    t = (-b + raiz) / (2.0 * a)
-                };
-                if t <= 0.0 {
-                    return None;
+                let mut root = (-half_b - squared_discriminant) / a;
+
+                let min_t = 0.001;
+
+                // If it's too close to the camera don't take it
+                if root < min_t {
+                    root = (-half_b + squared_discriminant) / a;
+                    if root < min_t {
+                        return None;
+                    }
                 }
 
-                let point = ray.point(t);
+                let point = ray.point(root);
 
-                Some(Hit::new(t, point, (point - *center).normalized(), *mat))
+                Some(Hit::new(root, point, (point - *center) / *radious, *mat))
             }
             Shape::Plane(normal, distance, mat) => {
                 let d = Vec3::dot(*normal, ray.direction);

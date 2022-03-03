@@ -52,12 +52,10 @@ impl Material {
             }
             Material::Metal(albedo, fuzz) => {
                 let reflected = Vec3::reflect(ray.direction, hit.normal);
-
-                if Vec3::dot(reflected, hit.normal) > 0.0 {
-                    Some((
-                        Ray::new(hit.point, reflected + Vec3::random_in_unit_sphere() * fuzz),
-                        albedo,
-                    ))
+                let scatered =
+                    Ray::new(hit.point, reflected + Vec3::random_in_unit_sphere() * fuzz);
+                if Vec3::dot(scatered.direction, hit.normal) > 0.0 {
+                    Some((scatered, albedo))
                 } else {
                     None
                 }
