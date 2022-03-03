@@ -42,24 +42,10 @@ impl Ray {
     }
 
     pub fn first_hit(&self, world: &[Shape]) -> Option<Hit> {
-        let mut closest: Option<Hit> = None;
-
-
-        for shape in world {
-            let hit = shape.intersects(self);
-
-            match (hit, closest) {
-                (Some(h), Some(c)) => {
-                    if h.t < c.t {
-                        closest = hit
-                    }
-                }
-                (Some(_), None) => closest = hit,
-                _ => (),
-            }
-        }
-
-        closest
+        world
+            .iter()
+            .filter_map(|shape| shape.intersects(self))
+            .reduce(|a, b| if a.t < b.t { a } else { b })
     }
 
     pub fn bounce(&self, world: &[Shape], ambient_light: Vec3, ttl: i32) -> Vec3 {
