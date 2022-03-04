@@ -14,15 +14,17 @@ pub struct Hit {
     pub point: Vec3,
     pub normal: Vec3,
     pub material: Material,
+    pub front_face: bool,
 }
 
 impl Hit {
-    pub fn new(t: f64, point: Vec3, normal: Vec3, material: Material) -> Hit {
+    pub fn new(t: f64, point: Vec3, normal: Vec3, material: Material, front_face: bool) -> Hit {
         Hit {
             t,
             point,
             normal,
             material,
+            front_face
         }
     }
 }
@@ -53,7 +55,7 @@ impl Ray {
 
         match self.first_hit(world) {
             Some(h) => {
-                let res = h.material.scatter(self, h);
+                let res = h.material.scatter(self, &h);
 
                 match res {
                     Some((scattered, attenuation)) => {

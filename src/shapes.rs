@@ -1,12 +1,9 @@
-use std::mem::discriminant;
-
 use crate::materials::Material;
 use crate::ray::{Hit, Ray};
 use crate::vec3::Vec3;
 
 pub enum Shape {
     Sphere(Vec3, f64, Material),
-    Plane(Vec3, f64, Material),
 }
 
 impl Shape {
@@ -40,23 +37,15 @@ impl Shape {
 
                 let point = ray.point(root);
 
-                Some(Hit::new(root, point, (point - *center) / *radious, *mat))
-            }
-            Shape::Plane(normal, distance, mat) => {
-                let d = Vec3::dot(*normal, ray.direction);
-                let pos = (*normal) * (*distance);
+                // We want the outwards facing normal
+                let normal = (point - *center) / *radious;
+                let (normal, front_face) = if Vec3::dot(ray.direction, normal) < 0.0 {
+                    (normal, true)
+                } else {
+                    (normal * -1.0, false)
+                };
 
-                if d.abs() < 0.05 {
-                    return None;
-                }
-
-                let t = Vec3::dot(pos - ray.origin, *normal) / d;
-
-                if t < 0.0 {
-                    return None;
-                }
-
-                Some(Hit::new(t, ray.point(t), *normal, *mat))
+                Some(Hit::new(root, point, normal, *mat, front_face))
             }
         }
     }

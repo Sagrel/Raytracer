@@ -24,7 +24,7 @@ use rand::prelude::Rng;
 
 const WIDHT: usize = 1366;
 const HEIGHT: usize = 768;
-const SAMPLES: usize = 20;
+const SAMPLES: usize = 500;
 const RATIO: f64 = WIDHT as f64 / HEIGHT as f64;
 const TTL: i32 = 1024;
 

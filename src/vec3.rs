@@ -38,17 +38,14 @@ impl Vec3 {
         a - b * Vec3::dot(a, b) * 2.0
     }
 
-    pub fn refract(a: Vec3, b: Vec3, ni_over_nt: f64) -> Option<Vec3> {
-        let v = a.normalized();
-        let dt = Vec3::dot(a, b);
-        let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
-
-        if discriminant <= 0.0 {
-            None
-        } else {
-            Some((v - b * dt) * ni_over_nt - b * discriminant.sqrt())
-        }
+    
+    pub fn refract(a: Vec3, b: Vec3, ni_over_nt: f64) -> Vec3 {
+        let cos_theta = f64::min(Vec3::dot(a * -1.0, b), 1.0);
+        let perpendicular = (a + b * cos_theta) * ni_over_nt; 
+        let parallel = b * - (1.0 - Vec3::dot(perpendicular, perpendicular)).abs().sqrt();
+        parallel + perpendicular
     }
+    
 
     pub fn random_in_unit_sphere() -> Vec3 {
         let mut v = Vec3::new(5.5, 5.5, 5.5);
@@ -62,24 +59,12 @@ impl Vec3 {
         v
     }
 
-    /*
-    pub fn rotate_x(&self, a: f64) -> Vec3 {
-        Vec3::new(
-            self.x,
-            self.y * a.cos() - self.z * a.sin(),
-            self.y * a.sin() + self.z * a.cos(),
-        )
+    pub fn near_zero(self) -> bool {
+        let s = 1e-8;
+        self.x.abs() < s && self.y.abs() < s && self.z.abs() < s 
     }
 
-    pub fn rotate_y(&self, a: f64) -> Vec3 {
-        Vec3::new(
-            self.x * a.cos() + self.z * a.sin(),
-            self.y,
-            -self.x * a.sin() + self.z * a.cos(),
-        )
-    }
-    */
-
+   
     pub fn length(self) -> f64 {
         Vec3::dot(self, self).sqrt()
     }
