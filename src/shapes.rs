@@ -1,7 +1,10 @@
+use serde::{Serialize, Deserialize};
+
 use crate::materials::Material;
 use crate::ray::{Hit, Ray};
 use crate::vec3::Vec3;
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Shape {
     Sphere(Vec3, f64, Material),
 }

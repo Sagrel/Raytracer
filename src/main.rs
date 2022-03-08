@@ -1,4 +1,7 @@
 mod vec3;
+use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::time::Instant;
 
 use image::ImageBuffer;
@@ -7,6 +10,8 @@ use rand::thread_rng;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSliceMut;
+use serde::Deserialize;
+use serde::Serialize;
 use vec3::Vec3;
 
 mod shapes;
@@ -21,13 +26,6 @@ mod materials;
 use materials::Material;
 
 use rand::prelude::Rng;
-
-const WIDHT: usize = 1366;
-const HEIGHT: usize = 768;
-const SAMPLES: usize = 10;
-const CHUNK_ROWS: usize = 2;
-const RATIO: f64 = WIDHT as f64 / HEIGHT as f64;
-const TTL: i32 = 1024;
 
 fn create_world() -> Vec<Shape> {
     let mut world: Vec<Shape> = Vec::new();
@@ -86,35 +84,36 @@ fn create_world() -> Vec<Shape> {
     world
 }
 
-fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
-    
-    let pb = ProgressBar::new((HEIGHT * WIDHT) as u64);
+fn raytrace(config: &Config) -> Vec<Vec3> {
+    let pb = ProgressBar::new((config.height * config.width) as u64);
 
-    let mut pixels = vec![Vec3::zero(); HEIGHT * WIDHT];
+    let mut pixels = vec![Vec3::zero(); config.height * config.width];
 
     pixels
-        .par_chunks_mut(WIDHT * CHUNK_ROWS) // Divide work in chunks
-        .enumerate()         // Enumerate the chunks to get back the pixel coordinates
-        .for_each(|(idx, chunk)| {  // This is done in parallel
+        .par_chunks_mut(config.width * config.chunk_size) // Divide work in chunks
+        .enumerate() // Enumerate the chunks to get back the pixel coordinates
+        .for_each(|(idx, chunk)| {
+            // This is done in parallel
             let mut rng = rand::thread_rng();
-            for (pos, pixel) in chunk.iter_mut().enumerate() {  // For each pixel in the chunck
+            for (pos, pixel) in chunk.iter_mut().enumerate() {
+                // For each pixel in the chunck
                 // We calculate the current pixel position
-                let x = (pos % WIDHT) as f64;
-                let y = (idx * CHUNK_ROWS + pos / WIDHT) as f64;
-                // And finally we sample the pixel SAMPLES amoults of times and average them
+                let x = (pos % config.width) as f64;
+                let y = (idx * config.chunk_size + pos / config.width) as f64;
+                // And finally we sample the pixel config.samples amoults of times and average them
                 // TODO should we divide by samples every time to avoid going over the max f64? Probably not
-                for _ in 0..SAMPLES {
-                    let x_offset = (x + rng.gen::<f64>()) / WIDHT as f64;
-                    let y_offset = (y + rng.gen::<f64>()) / HEIGHT as f64;
-                    let ray = camera.get_pixel(x_offset, y_offset);
+                for _ in 0..config.samples {
+                    let x_offset = (x + rng.gen::<f64>()) / config.width as f64;
+                    let y_offset = (y + rng.gen::<f64>()) / config.height as f64;
+                    let ray = config.camera.get_pixel(x_offset, y_offset);
 
-                    *pixel = *pixel + ray.bounce(world, &ambient_light, TTL);
+                    *pixel = *pixel + ray.bounce(&config.world, &config.ambient_color, config.ttl);
                 }
-                *pixel = *pixel / SAMPLES as f64;
+                *pixel = *pixel / config.samples as f64;
 
                 //pb.inc(1);
             }
-            pb.inc((WIDHT * CHUNK_ROWS) as u64);
+            pb.inc((config.width * config.chunk_size) as u64);
         });
 
     pb.finish_and_clear();
@@ -122,12 +121,12 @@ fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
     pixels
 }
 
-fn print_image(pixels: &[Vec3]) {
-    let mut imgbuf = ImageBuffer::new(WIDHT as u32, HEIGHT as u32);
+fn print_image(pixels: &[Vec3], config: &Config) {
+    let mut imgbuf = ImageBuffer::new(config.width as u32, config.height as u32);
 
     for (c, f, pixel) in imgbuf.enumerate_pixels_mut() {
-        let f = HEIGHT - 1 - f as usize;
-        let color = pixels[c as usize + f * WIDHT] * 255.0;
+        let f = config.height - 1 - f as usize;
+        let color = pixels[c as usize + f * config.width] * 255.0;
 
         *pixel = image::Rgb([color.x as u8, color.y as u8, color.z as u8]);
     }
@@ -135,28 +134,73 @@ fn print_image(pixels: &[Vec3]) {
     imgbuf.save("salida.png").unwrap();
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Config {
+    camera: Camera,
+    world: Vec<Shape>,
+    ambient_color: Vec3,
+    width: usize,
+    height: usize,
+    samples: usize,
+    ttl: i32,
+    chunk_size: usize,
+}
+
 fn main() {
-    let camera = Camera::new(
-        Vec3::new(-2.0, 2.0, 1.0),
-        Vec3::new(0.0, 0.0, -1.0),
-        Vec3::new(0.0, 1.0, 0.0),
-        90.0,
-        RATIO,
-    );
-    let ambient_color = Vec3::new(0.5, 0.7, 1.0);
+    let config: Config = if let Some(path) = env::args().nth(1) {
+        match File::open(&path) {
+            Ok(file) => serde_json::from_reader(file)
+                .unwrap_or_else(|_| panic!("We could not read the file {}", path)),
+            Err(_) => {
+                eprintln!("The file '{}' does not exist", path);
+                return;
+            }
+        }
+    } else {
+        let camera = Camera::new(
+            Vec3::new(-2.0, 2.0, 1.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            90.0,
+            RATIO,
+        );
+        let ambient_color = Vec3::new(0.5, 0.7, 1.0);
+        const WIDHT: usize = 1366;
+        const HEIGHT: usize = 768;
+        const SAMPLES: usize = 10;
+        const CHUNK_ROWS: usize = 2;
+        const RATIO: f64 = WIDHT as f64 / HEIGHT as f64;
+        const TTL: i32 = 1024;
+        let world = create_world();
+
+        let c = Config {
+            camera,
+            ambient_color,
+            world,
+            width: WIDHT,
+            height: HEIGHT,
+            samples: SAMPLES,
+            chunk_size: CHUNK_ROWS,
+            ttl: TTL,
+        };
+        let json = serde_json::to_string_pretty(&c).expect("Could not serialize world");
+        File::create("basic.json")
+            .unwrap()
+            .write_all(json.as_bytes())
+            .expect("Could not write file");
+        c
+    };
 
     println!(
         "Parameters: width = {} height = {} samples = {} ttl = {} chunk size = {}",
-        WIDHT, HEIGHT, SAMPLES, TTL, CHUNK_ROWS
+        config.width, config.height, config.samples, config.ttl, config.chunk_size
     );
-
-    let world = create_world();
 
     //optick::start_capture();
     let now = Instant::now();
-    let pixels = raytrace(&world, camera, ambient_color);
+    let pixels = raytrace(&config);
     println!("Tiempo de raytracing: {}s", now.elapsed().as_secs());
     //optick::stop_capture("raytracing_perf");
 
-    print_image(&pixels);
+    print_image(&pixels, &config);
 }

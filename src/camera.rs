@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::ray::Ray;
 use crate::vec3::Vec3;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Camera {
     pub lower_left_corner: Vec3,
     pub horizontal: Vec3,

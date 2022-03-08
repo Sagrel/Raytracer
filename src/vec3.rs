@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use std::ops;
 
 use rand::{thread_rng, Rng};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
     pub x: f64,
     pub y: f64,
@@ -38,14 +39,12 @@ impl Vec3 {
         a - b * Vec3::dot(a, b) * 2.0
     }
 
-    
     pub fn refract(a: Vec3, b: Vec3, ni_over_nt: f64) -> Vec3 {
         let cos_theta = f64::min(Vec3::dot(a * -1.0, b), 1.0);
-        let perpendicular = (a + b * cos_theta) * ni_over_nt; 
-        let parallel = b * - (1.0 - Vec3::dot(perpendicular, perpendicular)).abs().sqrt();
+        let perpendicular = (a + b * cos_theta) * ni_over_nt;
+        let parallel = b * -(1.0 - Vec3::dot(perpendicular, perpendicular)).abs().sqrt();
         parallel + perpendicular
     }
-    
 
     pub fn random_in_unit_sphere() -> Vec3 {
         let mut v = Vec3::new(5.5, 5.5, 5.5);
@@ -61,10 +60,9 @@ impl Vec3 {
 
     pub fn near_zero(self) -> bool {
         let s = 1e-8;
-        self.x.abs() < s && self.y.abs() < s && self.z.abs() < s 
+        self.x.abs() < s && self.y.abs() < s && self.z.abs() < s
     }
 
-   
     pub fn length(self) -> f64 {
         Vec3::dot(self, self).sqrt()
     }

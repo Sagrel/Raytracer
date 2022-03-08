@@ -1,9 +1,9 @@
 use crate::ray::{Hit, Ray};
 use crate::vec3::Vec3;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum Material {
     Dielectric(f64),
     Metal(Vec3, f64),
@@ -41,7 +41,7 @@ impl Material {
                 };
                 Some((Ray::new(hit.point, direction), Vec3::new(1.0, 1.0, 1.0)))
                 */
-                
+
                 let reflected = Vec3::reflect(ray.direction, hit.normal);
                 let atenuation = Vec3::new(1.0, 1.0, 1.0);
                 let normal: Vec3;
@@ -71,7 +71,6 @@ impl Material {
                     }
                     None => Some((Ray::new(hit.point, reflected), atenuation)),
                 }
-                
             }
             Material::Metal(albedo, fuzz) => {
                 let reflected = Vec3::reflect(ray.direction, hit.normal);
