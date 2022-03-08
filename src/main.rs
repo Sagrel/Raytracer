@@ -1,12 +1,12 @@
 mod vec3;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Instant;
 
 use image::ImageBuffer;
+use indicatif::ProgressBar;
 use rand::thread_rng;
-use rayon::iter::IntoParallelIterator;
+use rayon::iter::IndexedParallelIterator;
 use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSliceMut;
 use vec3::Vec3;
 
 mod shapes;
@@ -24,7 +24,8 @@ use rand::prelude::Rng;
 
 const WIDHT: usize = 1366;
 const HEIGHT: usize = 768;
-const SAMPLES: usize = 500;
+const SAMPLES: usize = 10;
+const CHUNK_ROWS: usize = 2;
 const RATIO: f64 = WIDHT as f64 / HEIGHT as f64;
 const TTL: i32 = 1024;
 
@@ -86,38 +87,39 @@ fn create_world() -> Vec<Shape> {
 }
 
 fn raytrace(world: &[Shape], camera: Camera, ambient_light: Vec3) -> Vec<Vec3> {
-    let res = Arc::new(Mutex::new(vec![Vec3::zero(); HEIGHT * WIDHT]));
+    
+    let pb = ProgressBar::new((HEIGHT * WIDHT) as u64);
 
-    (0..SAMPLES).into_par_iter().for_each(|_| {
-        let sample: Vec<_> = (0..(HEIGHT * WIDHT))
-            .into_iter()
-            .map(|idx| {
-                let mut rng = rand::thread_rng();
-                let f = idx / WIDHT;
-                let c = idx % WIDHT;
+    let mut pixels = vec![Vec3::zero(); HEIGHT * WIDHT];
 
-                let x_offset = (c as f64 + rng.gen::<f64>()) / WIDHT as f64;
-                let y_offset = (f as f64 + rng.gen::<f64>()) / HEIGHT as f64;
-                let ray = camera.get_pixel(x_offset, y_offset);
+    pixels
+        .par_chunks_mut(WIDHT * CHUNK_ROWS) // Divide work in chunks
+        .enumerate()         // Enumerate the chunks to get back the pixel coordinates
+        .for_each(|(idx, chunk)| {  // This is done in parallel
+            let mut rng = rand::thread_rng();
+            for (pos, pixel) in chunk.iter_mut().enumerate() {  // For each pixel in the chunck
+                // We calculate the current pixel position
+                let x = (pos % WIDHT) as f64;
+                let y = (idx * CHUNK_ROWS + pos / WIDHT) as f64;
+                // And finally we sample the pixel SAMPLES amoults of times and average them
+                // TODO should we divide by samples every time to avoid going over the max f64? Probably not
+                for _ in 0..SAMPLES {
+                    let x_offset = (x + rng.gen::<f64>()) / WIDHT as f64;
+                    let y_offset = (y + rng.gen::<f64>()) / HEIGHT as f64;
+                    let ray = camera.get_pixel(x_offset, y_offset);
 
-                ray.bounce(world, &ambient_light, TTL)
-            })
-            .collect();
+                    *pixel = *pixel + ray.bounce(world, &ambient_light, TTL);
+                }
+                *pixel = *pixel / SAMPLES as f64;
 
-        let mut res = res.lock().unwrap();
-        for (idx, pixel) in sample.iter().enumerate() {
-            res[idx] = res[idx] + *pixel;
-        }
-    });
+                //pb.inc(1);
+            }
+            pb.inc((WIDHT * CHUNK_ROWS) as u64);
+        });
 
-    // https://users.rust-lang.org/t/take-ownership-of-arc-mutex-t-inner-value/38097/2
-    let mut res = Arc::try_unwrap(res).unwrap().into_inner().unwrap();
+    pb.finish_and_clear();
 
-    for pixel in res.iter_mut() {
-        *pixel = *pixel / SAMPLES as f64;
-    }
-
-    res
+    pixels
 }
 
 fn print_image(pixels: &[Vec3]) {
@@ -144,18 +146,16 @@ fn main() {
     let ambient_color = Vec3::new(0.5, 0.7, 1.0);
 
     println!(
-        "Parametors: width = {} height = {} samples = {} ttl = {}",
-        WIDHT, HEIGHT, SAMPLES, TTL
+        "Parameters: width = {} height = {} samples = {} ttl = {} chunk size = {}",
+        WIDHT, HEIGHT, SAMPLES, TTL, CHUNK_ROWS
     );
 
     let world = create_world();
 
     //optick::start_capture();
-
     let now = Instant::now();
     let pixels = raytrace(&world, camera, ambient_color);
     println!("Tiempo de raytracing: {}s", now.elapsed().as_secs());
-
     //optick::stop_capture("raytracing_perf");
 
     print_image(&pixels);
