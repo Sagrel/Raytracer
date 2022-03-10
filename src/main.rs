@@ -88,14 +88,16 @@ fn raytrace(config: &Config) -> Vec<Vec3> {
     let pb = ProgressBar::new((config.height * config.width) as u64);
 
     let mut pixels = vec![Vec3::zero(); config.height * config.width];
-
+    //optick::event!();
     pixels
         .par_chunks_mut(config.width * config.chunk_size) // Divide work in chunks
         .enumerate() // Enumerate the chunks to get back the pixel coordinates
         .for_each(|(idx, chunk)| {
             // This is done in parallel
+            //optick::register_thread("");
             let mut rng = rand::thread_rng();
             for (pos, pixel) in chunk.iter_mut().enumerate() {
+                //optick::event!();
                 // For each pixel in the chunck
                 // We calculate the current pixel position
                 let x = (pos % config.width) as f64;
@@ -145,6 +147,8 @@ pub struct Config {
     ttl: i32,
     chunk_size: usize,
 }
+
+// TODO Cornell box
 
 fn main() {
     let config: Config = if let Some(path) = env::args().nth(1) {

@@ -7,11 +7,28 @@ use crate::vec3::Vec3;
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Shape {
     Sphere(Vec3, f64, Material),
+    Plane([f64;5], Material)           
 }
 
 impl Shape {
     pub fn intersects(&self, ray: &Ray) -> Option<Hit> {
         match self {
+            &Shape::Plane([x0,x1,y0,y1, k], mat) => {
+                let t = (k-ray.origin.z) / ray.direction.z;
+                let x = ray.origin.x + t*ray.direction.x;
+                let y = ray.origin.y + t*ray.direction.y;
+                if x < x0 || x > x1 || y < y0 || y > y1{
+                    return None;
+                }
+                let t = t;
+                let normal =  Vec3::new(0.0, 0.0, 1.0);
+                let (normal, front_face) = if Vec3::dot(ray.direction, normal) < 0.0 {
+                    (normal, true)
+                } else {
+                    (normal * -1.0, false)
+                };
+                Some(Hit::new(t, ray.point(t), normal, mat, front_face))
+            }
             Shape::Sphere(center, radious, mat) => {
                 let o_c = ray.origin - *center;
                 let a = Vec3::dot(ray.direction, ray.direction);
