@@ -1,2 +1,5 @@
 /target
 *.opt
+*.png
+*.data
+*.data.old

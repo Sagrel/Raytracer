@@ -1,6 +1,5 @@
 use crate::ray::{Hit, Ray};
 use crate::vec3::Vec3;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -62,8 +61,8 @@ impl Material {
 
                 match Some(refracted) {
                     Some(r) => {
-                        let mut rng = rand::thread_rng();
-                        if rng.gen::<f64>() < schilck(cos, ref_idx) {
+                        // SPEED This uses the thread local RNG
+                        if fastrand::f64() < schilck(cos, ref_idx) {
                             Some((Ray::new(hit.point, r), atenuation))
                         } else {
                             Some((Ray::new(hit.point, reflected), atenuation))

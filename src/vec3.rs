@@ -1,7 +1,7 @@
+use fastrand::Rng;
 use serde::{Deserialize, Serialize};
 use std::ops;
 
-use rand::{thread_rng, Rng};
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
@@ -50,9 +50,9 @@ impl Vec3 {
         let mut v = Vec3::new(5.5, 5.5, 5.5);
         let vec1 = Vec3::new(1.0, 1.0, 1.0);
 
-        let mut rng = thread_rng();
+        let rng = Rng::new();
         while v.length() >= 1.0 {
-            v = Vec3::new(rng.gen(), rng.gen(), rng.gen()) * 2.0 - vec1;
+            v = Vec3::new(rng.f64(), rng.f64(), rng.f64()) * 2.0 - vec1;
         }
 
         v
