@@ -37,7 +37,6 @@ pub fn raytrace(config: &Config) -> impl IntoIterator<Item = Vec3> {
                     *pixel =
                         *pixel + ray.bounce(&get_hit, &world, &config.ambient_color, config.ttl);
                 }
-                *pixel = *pixel / config.samples as f64; // TODO Remove this and do gamma correction in image printing
             }
         });
 

@@ -53,7 +53,7 @@ fn main() {
 fn print_image(pixels: impl IntoIterator<Item = Vec3>, config: &Config) {
     let mut imgbuf = ImageBuffer::new(config.width as u32, config.height as u32);
     for (img_pixel, calculated_pixel) in imgbuf.pixels_mut().zip(pixels) {
-        let color = calculated_pixel * 255.0;
+        let color = (calculated_pixel / config.samples as f64) * 255.0;
         *img_pixel = image::Rgb([color.x as u8, color.y as u8, color.z as u8]);
     }
 
