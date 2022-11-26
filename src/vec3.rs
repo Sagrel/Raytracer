@@ -63,28 +63,30 @@ impl Vec3 {
         f64::max(self.x, f64::max(self.y, self.z))
     }
 
-    // TODO use method syntax
-    pub fn dot(a: Vec3, b: Vec3) -> f64 {
-        a.x * b.x + a.y * b.y + a.z * b.z
+    pub fn dot(self, b: Vec3) -> f64 {
+        self.x * b.x + self.y * b.y + self.z * b.z
     }
 
-    // TODO use method syntax
-    pub fn cross(a: Vec3, b: Vec3) -> Vec3 {
+    pub fn cross(self: Vec3, b: Vec3) -> Vec3 {
         Vec3::new(
-            a.y * b.z - a.z * b.y,
-            a.z * b.x - a.x * b.z,
-            a.x * b.y - a.y * b.x,
+            self.y * b.z - self.z * b.y,
+            self.z * b.x - self.x * b.z,
+            self.x * b.y - self.y * b.x,
         )
     }
 
+    pub fn negative(self) -> Self {
+        self * -1.0
+    }
+
     pub fn reflect(a: Vec3, b: Vec3) -> Vec3 {
-        a - b * Vec3::dot(a, b) * 2.0
+        a - b * a.dot(b) * 2.0
     }
 
     pub fn refract(a: Vec3, b: Vec3, ni_over_nt: f64) -> Vec3 {
-        let cos_theta = f64::min(Vec3::dot(a * -1.0, b), 1.0);
+        let cos_theta = f64::min(a.negative().dot(b), 1.0);
         let perpendicular = (a + b * cos_theta) * ni_over_nt;
-        let parallel = b * -(1.0 - Vec3::dot(perpendicular, perpendicular)).abs().sqrt();
+        let parallel = b * -(1.0 - perpendicular.dot(perpendicular)).abs().sqrt();
         parallel + perpendicular
     }
 
@@ -107,7 +109,7 @@ impl Vec3 {
     }
 
     pub fn length(self) -> f64 {
-        Vec3::dot(self, self).sqrt()
+        self.dot(self).sqrt()
     }
 
     pub fn normalized(self) -> Vec3 {

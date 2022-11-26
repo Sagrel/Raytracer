@@ -28,8 +28,8 @@ impl Camera {
         let half_width = aspect_ratio * half_height;
 
         let w = (look_from - look_at).normalized();
-        let u = Vec3::cross(up, w).normalized();
-        let v = Vec3::cross(w, u);
+        let u = up.cross(w).normalized();
+        let v = w.cross(u);
 
         Camera {
             lower_left_corner: look_from - u * half_width - v * half_height - w,

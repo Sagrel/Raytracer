@@ -13,7 +13,6 @@ pub enum Material {
     Diffuse(Vec3), // Lambertian
 }
 
-
 fn reflectance(cos: f64, ref_idx: f64) -> f64 {
     // Use Schlick's approximation for reflectance.
     let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
@@ -32,7 +31,7 @@ impl Material {
                     ref_idx
                 };
 
-                let cos_theta = f64::min(Vec3::dot(ray.direction * -1.0, hit.normal), 1.0);
+                let cos_theta = f64::min(ray.direction.negative().dot(hit.normal), 1.0);
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 
                 let cannot_refact = refraction_ratio * sin_theta > 1.0;
@@ -82,7 +81,7 @@ impl Material {
                 let reflected = Vec3::reflect(ray.direction, hit.normal);
                 let scatered =
                     Ray::new(hit.point, reflected + Vec3::random_in_unit_sphere() * fuzz);
-                if Vec3::dot(scatered.direction, hit.normal) > 0.0 {
+                if scatered.direction.dot(hit.normal) > 0.0 {
                     Some((scatered, albedo))
                 } else {
                     None

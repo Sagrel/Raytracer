@@ -11,7 +11,6 @@ pub enum ShapeKind {
     Plane([f64; 5]),
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 
 pub struct Shape {
@@ -31,7 +30,7 @@ impl Shape {
                 }
                 let t = t;
                 let normal = Vec3::new(0.0, 0.0, 1.0);
-                let (normal, front_face) = if Vec3::dot(ray.direction, normal) < 0.0 {
+                let (normal, front_face) = if ray.direction.dot(normal) < 0.0 {
                     (normal, true)
                 } else {
                     (normal * -1.0, false)
@@ -40,9 +39,9 @@ impl Shape {
             }
             ShapeKind::Sphere(center, radious) => {
                 let o_c = ray.origin - center;
-                let a = Vec3::dot(ray.direction, ray.direction);
-                let half_b = Vec3::dot(ray.direction, o_c);
-                let c = Vec3::dot(o_c, o_c) - radious * radious;
+                let a = ray.direction.dot(ray.direction);
+                let half_b = ray.direction.dot(o_c);
+                let c = o_c.dot(o_c) - radious * radious;
 
                 let discriminant = half_b * half_b - a * c;
 
@@ -68,7 +67,7 @@ impl Shape {
 
                 // We want the outwards facing normal
                 let normal = (point - center) / radious;
-                let (normal, front_face) = if Vec3::dot(ray.direction, normal) < 0.0 {
+                let (normal, front_face) = if ray.direction.dot(normal) < 0.0 {
                     (normal, true)
                 } else {
                     (normal * -1.0, false)

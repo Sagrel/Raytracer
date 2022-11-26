@@ -16,6 +16,7 @@ impl Ray {
         }
     }
 
+    
     pub fn point(&self, t: f64) -> Vec3 {
         self.origin + self.direction * t
     }
