@@ -10,9 +10,13 @@ edition = "2021"
 fastrand = "*"
 rayon = "*"
 image = "*"
-indicatif = "*"
+indicatif = "*" # TODO use or remove
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
+time = "0.3.17"
 
 [profile.release]
 debug = 1
+lto = true
+opt-level =  3
+overflow-checks = false 

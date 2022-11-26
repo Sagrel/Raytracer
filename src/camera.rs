@@ -12,7 +12,17 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(look_from: Vec3, look_at: Vec3, up: Vec3, fov: f64, aspect_ratio: f64) -> Camera {
+    pub fn new(
+        look_from: impl Into<Vec3>,
+        look_at: impl Into<Vec3>,
+        up: impl Into<Vec3>,
+        fov: f64,
+        aspect_ratio: f64,
+    ) -> Camera {
+        let look_from = look_from.into();
+        let look_at = look_at.into();
+        let up = up.into();
+
         let theta = fov * std::f64::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;

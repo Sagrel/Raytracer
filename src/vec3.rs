@@ -1,13 +1,32 @@
 use fastrand::Rng;
 use serde::{Deserialize, Serialize};
-use std::ops;
-
+use std::ops::{self, Index};
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
     pub x: f64,
     pub y: f64,
     pub z: f64,
+}
+
+impl Index<usize> for Vec3 {
+    type Output = f64;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            _ => unreachable!(),
+        }
+    }
+}
+
+// TODO use in more places?
+impl From<(f64, f64, f64)> for Vec3 {
+    fn from((x, y, z): (f64, f64, f64)) -> Self {
+        Self::new(x, y, z)
+    }
 }
 
 impl Vec3 {
@@ -23,10 +42,33 @@ impl Vec3 {
         }
     }
 
+    pub fn inverse(self) -> Self {
+        // These are identical
+        //Self::new(1.0 / self.x, 1.0 / self.y, 1.0 / self.z)
+        Self::new(self.x.recip(), self.y.recip(), self.z.recip())
+    }
+
+    pub fn min(a: Self, b: Self) -> Self {
+        Self::new(f64::min(a.x, b.x), f64::min(a.y, b.y), f64::min(a.z, b.z))
+    }
+
+    pub fn max(a: Self, b: Self) -> Self {
+        Self::new(f64::max(a.x, b.x), f64::max(a.y, b.y), f64::max(a.z, b.z))
+    }
+
+    pub fn min_component(self) -> f64 {
+        f64::min(self.x, f64::min(self.y, self.z))
+    }
+    pub fn max_component(self) -> f64 {
+        f64::max(self.x, f64::max(self.y, self.z))
+    }
+
+    // TODO use method syntax
     pub fn dot(a: Vec3, b: Vec3) -> f64 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
 
+    // TODO use method syntax
     pub fn cross(a: Vec3, b: Vec3) -> Vec3 {
         Vec3::new(
             a.y * b.z - a.z * b.y,
@@ -47,6 +89,7 @@ impl Vec3 {
     }
 
     pub fn random_in_unit_sphere() -> Vec3 {
+        // SPEED Is this the best way?
         let mut v = Vec3::new(5.5, 5.5, 5.5);
         let vec1 = Vec3::new(1.0, 1.0, 1.0);
 
