@@ -7,16 +7,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fastrand = "*"
 rayon = "*"
 image = "*"
-indicatif = "*" # TODO use or remove
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 time = "0.3.17"
+glam = { version = "0.22.0", features = ["serde", "rand", "fast-math"] }
+nanorand = "0.7.0"
 
 [profile.release]
 debug = 1
-lto = true
+#lto = true
 opt-level =  3
 overflow-checks = false 

@@ -1,78 +1,45 @@
-use crate::hit::Hit;
-use crate::vec3::Vec3;
-use crate::world::World;
+use crate::bvh::BVH;
+use crate::scene::Scene;
+use crate::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Ray {
-    pub origin: Vec3,
-    pub direction: Vec3,
+    pub origin: Vector,
+    pub direction: Vector,
 }
 
 impl Ray {
-    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
+    pub fn new(origin: Vector, direction: Vector) -> Ray {
         Ray {
             origin,
-            direction: direction.normalized(),
+            direction: direction.normalize(),
         }
     }
 
-    
-    pub fn point(&self, t: f64) -> Vec3 {
+    pub fn point(&self, t: Real) -> Vector {
         self.origin + self.direction * t
     }
 
-    pub fn bounce(
-        &self,
-        get_hit: &impl Fn(&Self) -> Option<Hit>,
-        world: &World,
-        ambient_color: &Vec3,
-        ttl: usize,
-    ) -> Vec3 {
+    pub fn bounce(&self, bvh: &BVH, scene: &Scene, ambient_color: &Vector, ttl: usize) -> Vector {
         if ttl <= 0 {
             return *ambient_color;
         }
 
-        match get_hit(self) {
+        match bvh.hit(self, &scene.shapes) {
             Some(h) => {
-                let res = world.materials[h.material].scatter(self, &h);
+                let res = scene.materials[h.material].scatter(self, &h.get_hit_info(self));
 
                 match res {
                     Some((scattered, attenuation)) => {
-                        attenuation * scattered.bounce(get_hit, world, ambient_color, ttl - 1)
+                        attenuation * scattered.bounce(bvh, scene, ambient_color, ttl - 1)
                     }
-                    None => Vec3::zero(),
+                    None => Vector::ZERO,
                 }
             }
             None => {
                 let t = 0.5 * (self.direction.y + 1.0);
-                Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + *ambient_color * t
+                Vector::splat(1.0) * (1.0 - t) + *ambient_color * t
             }
         }
     }
-    /*
-    pub fn bounce(&self, world: &World, config: &Config, ttl: usize) -> Vec3 {
-        if ttl <= 0 {
-            return config.ambient_color;
-        }
-
-        let hit = if config.bvh_enabled { world.}
-
-        match self.first_hit(&world.shapes) {
-            Some(h) => {
-                let res = world.materials[h.material].scatter(self, &h);
-
-                match res {
-                    Some((scattered, attenuation)) => {
-                        attenuation * scattered.bounce(world, config, ttl - 1)
-                    }
-                    None => Vec3::zero(),
-                }
-            }
-            None => {
-                let t = 0.5 * (self.direction.y + 1.0);
-                Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + config.ambient_color * t
-            }
-        }
-    }
-    */
 }

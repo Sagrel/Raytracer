@@ -1,19 +1,50 @@
-use crate::hit::Hit;
+use crate::hit::HitInfo;
 use crate::ray::Ray;
-use crate::vec3::Vec3;
+use crate::Real;
+use crate::Vector;
+use nanorand::Rng;
 use serde::{Deserialize, Serialize};
 
 pub type MaterialRef = usize;
 
-// TODO Create convenience constructor funcitions that take Into<Vec3> so we can use tuples and stuff like that
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum Material {
-    Dielectric(f64),
-    Metal(Vec3, f64),
-    Diffuse(Vec3), // Lambertian
+fn reflect(a: Vector, b: Vector) -> Vector {
+    a - b * a.dot(b) * 2.0
 }
 
-fn reflectance(cos: f64, ref_idx: f64) -> f64 {
+fn refract(a: Vector, b: Vector, ni_over_nt: Real) -> Vector {
+    let cos_theta = b.dot(-a).min(1.0);
+    let perpendicular = (a + b * cos_theta) * ni_over_nt;
+    let parallel = -(1.0 - perpendicular.length_squared()).abs().sqrt() * b;
+    parallel + perpendicular
+}
+
+fn random_in_unit_sphere() -> Vector {
+    // SPEED Is this the best way?
+    let mut rng = nanorand::tls_rng();
+
+    loop {
+        let v = Vector::new(
+            rng.generate::<Real>(),
+            rng.generate::<Real>(),
+            rng.generate::<Real>(),
+        ) * 2.0
+            - Vector::ONE;
+
+        if v.length_squared() < 1.0 {
+            return v;
+        }
+    }
+}
+
+// TODO Create convenience constructor funcitions that take Into<Vector> so we can use tuples and stuff like that
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum Material {
+    Dielectric(Real),    // Cristal
+    Metal(Vector, Real), // Metal/Mirror
+    Diffuse(Vector),     // Lambertian, rough surface
+}
+
+fn reflectance(cos: Real, ref_idx: Real) -> Real {
     // Use Schlick's approximation for reflectance.
     let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
     let r0 = r0 * r0;
@@ -21,66 +52,39 @@ fn reflectance(cos: f64, ref_idx: f64) -> f64 {
     r0 + (1.0 - r0) * (1.0 - cos).powi(5)
 }
 
+fn near_zero(v: Vector) -> bool {
+    v.x.abs() < Real::EPSILON && v.y.abs() < Real::EPSILON && v.z.abs() < Real::EPSILON
+}
+
 impl Material {
-    pub fn scatter(self, ray: &Ray, hit: &Hit) -> Option<(Ray, Vec3)> {
+    pub fn scatter(self, ray: &Ray, hit: &HitInfo) -> Option<(Ray, Vector)> {
         match self {
             Material::Dielectric(ref_idx) => {
+                // TODO This seems to be broken again. At some point I got it working, let´s look at the git history
                 let refraction_ratio = if hit.front_face {
-                    1.0 / ref_idx
+                    ref_idx.recip()
                 } else {
                     ref_idx
                 };
 
-                let cos_theta = f64::min(ray.direction.negative().dot(hit.normal), 1.0);
+                let cos_theta = Real::min(hit.normal.dot(-ray.direction), 1.0);
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 
                 let cannot_refact = refraction_ratio * sin_theta > 1.0;
 
                 let direction = if cannot_refact
-                    || reflectance(cos_theta, refraction_ratio) > fastrand::f64()
+                    || reflectance(cos_theta, refraction_ratio)
+                        > nanorand::tls_rng().generate::<Real>()
                 {
-                    Vec3::reflect(ray.direction, hit.normal)
+                    reflect(ray.direction, hit.normal)
                 } else {
-                    Vec3::refract(ray.direction, hit.normal, refraction_ratio)
+                    refract(ray.direction, hit.normal, refraction_ratio)
                 };
-                Some((Ray::new(hit.point, direction), Vec3::new(1.0, 1.0, 1.0)))
-
-                /*
-                let reflected = Vec3::reflect(ray.direction, hit.normal);
-                let atenuation = Vec3::new(1.0, 1.0, 1.0);
-                let normal: Vec3;
-                                let ni_over_nt: f64;
-                                let cos: f64;
-
-                                if Vec3::dot(ray.direction, hit.normal) > 0.0 {
-                                    normal = Vec3::zero() - hit.normal;
-                                    ni_over_nt = ref_idx;
-                                    cos = ref_idx * Vec3::dot(ray.direction, hit.normal);
-                                } else {
-                                    normal = hit.normal;
-                                    ni_over_nt = 1.0 / ref_idx;
-                                    cos = -Vec3::dot(ray.direction, hit.normal);
-                                }
-
-                                let refracted = Vec3::refract(ray.direction, normal, ni_over_nt);
-
-                                match Some(refracted) {
-                                    Some(r) => {
-                                        // SPEED This uses the thread local RNG
-                                        if fastrand::f64() < reflectance(cos, ref_idx) {
-                                            Some((Ray::new(hit.point, r), atenuation))
-                                        } else {
-                                            Some((Ray::new(hit.point, reflected), atenuation))
-                                        }
-                                    }
-                                    None => Some((Ray::new(hit.point, reflected), atenuation)),
-                                }
-                                */
+                Some((Ray::new(hit.point, direction), Vector::ONE))
             }
             Material::Metal(albedo, fuzz) => {
-                let reflected = Vec3::reflect(ray.direction, hit.normal);
-                let scatered =
-                    Ray::new(hit.point, reflected + Vec3::random_in_unit_sphere() * fuzz);
+                let reflected = reflect(ray.direction, hit.normal);
+                let scatered = Ray::new(hit.point, reflected + random_in_unit_sphere() * fuzz);
                 if scatered.direction.dot(hit.normal) > 0.0 {
                     Some((scatered, albedo))
                 } else {
@@ -88,8 +92,8 @@ impl Material {
                 }
             }
             Material::Diffuse(albedo) => {
-                let scatter_direction = hit.normal + Vec3::random_in_unit_sphere().normalized();
-                let direction = if scatter_direction.near_zero() {
+                let scatter_direction = hit.normal + random_in_unit_sphere().normalize();
+                let direction = if near_zero(scatter_direction) {
                     hit.normal
                 } else {
                     scatter_direction

@@ -4,16 +4,25 @@
 mod tests {
     use std::{fs::File, io::Write};
 
-    use fastrand::Rng;
+    use nanorand::{tls::TlsWyRand, Rng};
 
     use crate::{
         materials::*,
+        scene::Scene,
         shapes::{Shape, ShapeKind},
-        vec3::Vec3,
-        world::World,
+        Real, Vector,
     };
 
-    impl World {
+    impl Scene {
+        pub fn new(look_from: Vector, look_at: Vector, fov: Real) -> Self {
+            Self {
+                shapes: Vec::new(),
+                materials: Vec::new(),
+                look_from,
+                look_at,
+                fov: fov,
+            }
+        }
         pub fn add_material(&mut self, material: Material) -> MaterialRef {
             self.materials.push(material);
 
@@ -21,15 +30,15 @@ mod tests {
         }
     }
 
-    pub fn dielectric(a: f64) -> Material {
+    pub fn dielectric(a: Real) -> Material {
         Material::Dielectric(a)
     }
 
-    pub fn metal(v: impl Into<Vec3>, a: f64) -> Material {
+    pub fn metal(v: impl Into<Vector>, a: Real) -> Material {
         Material::Metal(v.into(), a)
     }
 
-    pub fn diffuse(v: impl Into<Vec3>) -> Material {
+    pub fn diffuse(v: impl Into<Vector>) -> Material {
         Material::Diffuse(v.into())
     }
     impl ShapeKind {
@@ -41,10 +50,10 @@ mod tests {
         }
     }
 
-    fn save_world(name: &str, world: World) {
+    fn save_world(name: &str, scene: Scene) {
         File::create(format!("./scenes/{name}.json"))
             .unwrap()
-            .write_all(serde_json::to_string_pretty(&world).unwrap().as_bytes())
+            .write_all(serde_json::to_string_pretty(&scene).unwrap().as_bytes())
             .expect("Could not write file");
     }
 
@@ -53,33 +62,44 @@ mod tests {
         save_world("scene_one", scene_one())
     }
 
-    fn scene_one() -> World {
-        let mut world = World::default();
+    fn random_color(rng: &mut TlsWyRand) -> Vector {
+        Vector::new(
+            rng.generate::<Real>(),
+            rng.generate::<Real>(),
+            rng.generate::<Real>(),
+        )
+    }
+
+    fn scene_one() -> Scene {
+        let mut world = Scene::new(Vector::new(13.0, 2.0, 3.0), Vector::ZERO, 20.0);
 
         let ground_material = world.add_material(diffuse((0.5, 0.5, 0.5)));
         world
             .shapes
             .push(ShapeKind::Sphere((0.0, -1000.0, 0.0).into(), 1000.0).with_mat(ground_material));
 
-        let rng = Rng::new();
+        let mut rng = nanorand::tls_rng();
+
         for a in -11..11 {
             for b in -11..11 {
-                let a = a as f64;
-                let b = b as f64;
-                let choose_mat = rng.f64();
-                let center = Vec3::new(a + 0.9 * rng.f64(), 0.2, b + 0.9 * rng.f64());
+                let a = a as Real;
+                let b = b as Real;
+                let choose_mat = rng.generate::<Real>();
+                let center = Vector::new(
+                    a + 0.9 * rng.generate::<Real>(),
+                    0.2,
+                    b + 0.9 * rng.generate::<Real>(),
+                );
 
-                let random_color = || Vec3::new(rng.f64(), rng.f64(), rng.f64());
-
-                if (center - Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
+                if (center - Vector::new(4.0, 0.2, 0.0)).length() > 0.9 {
                     let material = world.add_material(if choose_mat < 0.8 {
                         // diffuse
-                        let albedo = random_color() * random_color();
+                        let albedo = random_color(&mut rng) * random_color(&mut rng);
                         Material::Diffuse(albedo)
                     } else if choose_mat < 0.95 {
                         // metal
-                        let albedo = random_color() * 0.5 + Vec3::new(0.5, 0.5, 0.5);
-                        let fuzz = rng.f64() * 0.5;
+                        let albedo = random_color(&mut rng) * 0.5 + Vector::new(0.5, 0.5, 0.5);
+                        let fuzz = rng.generate::<Real>() * 0.5;
                         metal(albedo, fuzz)
                     } else {
                         // glass
@@ -94,17 +114,17 @@ mod tests {
         let mat = world.add_material(dielectric(1.5));
         world
             .shapes
-            .push(ShapeKind::Sphere(Vec3::new(0.0, 1.0, 0.0), 1.0).with_mat(mat));
+            .push(ShapeKind::Sphere(Vector::new(0.0, 1.0, 0.0), 1.0).with_mat(mat));
 
         let mat = world.add_material(diffuse((0.4, 0.2, 0.1)));
         world
             .shapes
-            .push(ShapeKind::Sphere(Vec3::new(-4.0, 1.0, 0.0), 1.0).with_mat(mat));
+            .push(ShapeKind::Sphere(Vector::new(-4.0, 1.0, 0.0), 1.0).with_mat(mat));
 
         let mat = world.add_material(metal((0.7, 0.6, 0.5), 0.0));
         world
             .shapes
-            .push(ShapeKind::Sphere(Vec3::new(4.0, 1.0, 0.0), 1.0).with_mat(mat));
+            .push(ShapeKind::Sphere(Vector::new(4.0, 1.0, 0.0), 1.0).with_mat(mat));
 
         world
     }

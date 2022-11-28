@@ -1,31 +1,29 @@
-mod vec3;
+mod aabb;
+mod bvh;
+mod camera;
+mod config;
+mod hit;
+mod materials;
+mod ray;
+mod raytrace;
+mod scene;
+mod scene_gerenators;
+mod shapes;
+
 use std::fs::File;
 use std::time::Instant;
 
 use image::imageops::flip_vertical_in_place;
 use image::ImageBuffer;
 use time::OffsetDateTime;
-use vec3::Vec3;
-
-mod hit;
-mod world;
-
-mod shapes;
-
-mod camera;
-
-mod materials;
-mod ray;
-mod scene_gerenators;
-use raytrace::*;
 
 use crate::config::Config;
+use raytrace::*;
 
-mod raytrace;
+use glam::*;
 
-mod aabb;
-mod bvh;
-mod config;
+type Vector = DVec3;
+type Real = f64;
 
 fn main() {
     let config: Config = match File::open("config.json") {
@@ -50,10 +48,10 @@ fn main() {
     print_image(pixels, &config);
 }
 
-fn print_image(pixels: impl IntoIterator<Item = Vec3>, config: &Config) {
+fn print_image(pixels: impl IntoIterator<Item = Vector>, config: &Config) {
     let mut imgbuf = ImageBuffer::new(config.width as u32, config.height as u32);
     for (img_pixel, calculated_pixel) in imgbuf.pixels_mut().zip(pixels) {
-        let color = (calculated_pixel / config.samples as f64) * 255.0;
+        let color = (calculated_pixel / config.samples as Real) * 255.0;
         *img_pixel = image::Rgb([color.x as u8, color.y as u8, color.z as u8]);
     }
 
