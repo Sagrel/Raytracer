@@ -15,6 +15,9 @@ time = "0.3.17"
 glam = { version = "0.22.0", features = ["serde", "rand", "fast-math"] }
 nanorand = "0.7.0"
 
+[dev-dependencies]
+easy-gltf = "0.1.5"
+
 [profile.release]
 debug = 1
 #lto = true

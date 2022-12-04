@@ -4,6 +4,7 @@
 mod tests {
     use std::{fs::File, io::Write};
 
+    use easy_gltf::model::Vertex;
     use nanorand::{tls::TlsWyRand, Rng};
 
     use crate::{
@@ -62,6 +63,11 @@ mod tests {
         save_world("scene_one", scene_one())
     }
 
+    #[test]
+    fn create_scene_two() {
+        save_world("scene_two", scene_two())
+    }
+
     fn random_color(rng: &mut TlsWyRand) -> Vector {
         Vector::new(
             rng.generate::<Real>(),
@@ -70,11 +76,44 @@ mod tests {
         )
     }
 
-    fn scene_one() -> Scene {
-        let mut world = Scene::new(Vector::new(13.0, 2.0, 3.0), Vector::ZERO, 20.0);
+    fn to_vector(vertex: Vertex) -> Vector {
+        (
+            vertex.position.x as Real,
+            vertex.position.y as Real,
+            vertex.position.z as Real,
+        )
+            .into()
+    }
 
-        let ground_material = world.add_material(diffuse((0.5, 0.5, 0.5)));
-        world
+    fn load_model(name: &str) -> impl Iterator<Item = ShapeKind> {
+        let scenes = easy_gltf::load(format!("./models/{name}/{name}.glb")).unwrap();
+        scenes.into_iter().flat_map(|s| {
+            s.models.into_iter().flat_map(|m| {
+                m.triangles()
+                    .unwrap()
+                    .into_iter()
+                    .map(|[a, b, c]| ShapeKind::Triangle(to_vector(a), to_vector(b), to_vector(c)))
+            })
+        })
+    }
+
+    fn scene_two() -> Scene {
+        let mut scene = Scene::new(Vector::new(1.5, 3.0, 6.0), Vector::ZERO, 20.0);
+
+        let material = scene.add_material(diffuse((0.5, 0.5, 0.5)));
+
+        for triangle in load_model("Box") {
+            scene.shapes.push(triangle.with_mat(material))
+        }
+
+        scene
+    }
+
+    fn scene_one() -> Scene {
+        let mut scene = Scene::new(Vector::new(13.0, 2.0, 3.0), Vector::ZERO, 20.0);
+
+        let ground_material = scene.add_material(diffuse((0.5, 0.5, 0.5)));
+        scene
             .shapes
             .push(ShapeKind::Sphere((0.0, -1000.0, 0.0).into(), 1000.0).with_mat(ground_material));
 
@@ -92,7 +131,7 @@ mod tests {
                 );
 
                 if (center - Vector::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                    let material = world.add_material(if choose_mat < 0.8 {
+                    let material = scene.add_material(if choose_mat < 0.8 {
                         // diffuse
                         let albedo = random_color(&mut rng) * random_color(&mut rng);
                         Material::Diffuse(albedo)
@@ -105,27 +144,35 @@ mod tests {
                         // glass
                         dielectric(1.5)
                     });
-                    world
-                        .shapes
-                        .push(ShapeKind::Sphere(center, 0.2).with_mat(material));
+                    let shape = if rng.generate::<bool>() {
+                        ShapeKind::Triangle(
+                            center + Vector::X,
+                            center + Vector::Y,
+                            center + Vector::Z,
+                        )
+                    } else {
+                        ShapeKind::Sphere(center, 0.2)
+                    };
+
+                    scene.shapes.push(shape.with_mat(material));
                 }
             }
         }
-        let mat = world.add_material(dielectric(1.5));
-        world
+        let mat = scene.add_material(dielectric(1.5));
+        scene
             .shapes
             .push(ShapeKind::Sphere(Vector::new(0.0, 1.0, 0.0), 1.0).with_mat(mat));
 
-        let mat = world.add_material(diffuse((0.4, 0.2, 0.1)));
-        world
+        let mat = scene.add_material(diffuse((0.4, 0.2, 0.1)));
+        scene
             .shapes
             .push(ShapeKind::Sphere(Vector::new(-4.0, 1.0, 0.0), 1.0).with_mat(mat));
 
-        let mat = world.add_material(metal((0.7, 0.6, 0.5), 0.0));
-        world
+        let mat = scene.add_material(metal((0.7, 0.6, 0.5), 0.0));
+        scene
             .shapes
             .push(ShapeKind::Sphere(Vector::new(4.0, 1.0, 0.0), 1.0).with_mat(mat));
 
-        world
+        scene
     }
 }
