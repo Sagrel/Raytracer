@@ -10,7 +10,7 @@ mod scene;
 mod scene_gerenators;
 mod shapes;
 
-use std::fs::File;
+use std::{fs::{File, self}, path::Path};
 use std::time::Instant;
 
 use image::imageops::flip_vertical_in_place;
@@ -56,7 +56,10 @@ fn print_image(pixels: impl IntoIterator<Item = Vector>, config: &Config) {
     }
 
     flip_vertical_in_place(&mut imgbuf);
-
+    let path = Path::new("./results");
+    if !path.exists() {
+        fs::create_dir(path).unwrap();
+    }
     imgbuf
         .save(format!(
             "./results/{}_{}.png",
