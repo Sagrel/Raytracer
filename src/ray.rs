@@ -1,4 +1,4 @@
-use crate::bvh::BVH;
+use crate::bvh::Bvh;
 use crate::scene::Scene;
 use crate::*;
 
@@ -20,12 +20,12 @@ impl Ray {
         self.origin + self.direction * t
     }
 
-    pub fn bounce(&self, bvh: &BVH, scene: &Scene, ambient_color: &Vector, ttl: usize) -> Vector {
-        if ttl <= 0 {
+    pub fn bounce(&self, bvh: &Bvh, scene: &Scene, ambient_color: &Vector, ttl: usize) -> Vector {
+        if ttl == 0 {
             return *ambient_color;
         }
 
-        match bvh.hit(self, &scene.shapes) {
+        match bvh.hit(self, self.direction.recip(), &scene.shapes) {
             Some(h) => {
                 let res = scene.materials[h.material].scatter(self, &h.get_hit_info(self));
 

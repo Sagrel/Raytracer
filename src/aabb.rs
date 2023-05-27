@@ -1,13 +1,13 @@
-use crate::{ray::Ray, shapes::ShapeKind, Vector};
+use crate::{shapes::ShapeKind, Vector};
 
 #[derive(Debug, Copy, Clone)]
 
-pub struct AABB {
+pub struct Aabb {
     pub min: Vector,
     pub max: Vector,
 }
 
-impl AABB {
+impl Aabb {
     pub fn new(min: Vector, max: Vector) -> Self {
         Self { min, max }
     }
@@ -27,19 +27,7 @@ impl AABB {
     }
 
     // Reference: https://medium.com/@bromanz/another-view-on-the-classic-ray-aabb-intersection-algorithm-for-bvh-traversal-41125138b525
-    pub fn hit(&self, ray: &Ray) -> bool {
-        let inv_dir = ray.direction.recip();
-
-        let t0 = (self.min - ray.origin) * inv_dir;
-        let t1 = (self.max - ray.origin) * inv_dir;
-
-        let tsmall = t0.min(t1);
-        let tbig = t0.max(t1);
-
-        tsmall.max_element() <= tbig.min_element()
-    }
-
-    pub fn hit_fast(&self, ray_origin: Vector, ray_dir_recip: Vector) -> bool {
+    pub fn hit(&self, ray_origin: Vector, ray_dir_recip: Vector) -> bool {
         let t0 = (self.min - ray_origin) * ray_dir_recip;
         let t1 = (self.max - ray_origin) * ray_dir_recip;
 

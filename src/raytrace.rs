@@ -1,7 +1,7 @@
 use nanorand::*;
 use rayon::{prelude::ParallelIterator, slice::ParallelSliceMut};
 
-use crate::{bvh::BVH, camera::Camera, config::Config, scene::Scene, Real, Vector};
+use crate::{bvh::Bvh, camera::Camera, config::Config, scene::Scene, Real, Vector};
 
 fn indeces_2d(width: usize, height: usize) -> impl Iterator<Item = (usize, usize)> {
     (0..height).flat_map(move |row| (0..width).map(move |col| (col, row)))
@@ -10,7 +10,7 @@ fn indeces_2d(width: usize, height: usize) -> impl Iterator<Item = (usize, usize
 pub fn raytrace(config: &Config) -> impl IntoIterator<Item = Vector> {
     let scene = Scene::read_scene(&config.scene);
     let camera = Camera::new(&scene, config.aspect_ratio);
-    let bvh = BVH::new(&scene.shapes);
+    let bvh = Bvh::new(&scene.shapes);
 
     let mut pixels = indeces_2d(config.width, config.height)
         .map(|index| (Vector::ZERO, index))
@@ -26,7 +26,7 @@ pub fn raytrace(config: &Config) -> impl IntoIterator<Item = Vector> {
                     let y_offset = (*y as Real + rng.generate::<Real>()) / config.height as Real;
                     let ray = camera.get_pixel(x_offset, y_offset);
 
-                    *pixel = *pixel + ray.bounce(&bvh, &scene, &config.ambient_color, config.ttl);
+                    *pixel += ray.bounce(&bvh, &scene, &config.ambient_color, config.ttl);
                 }
             }
         });

@@ -21,7 +21,7 @@ mod tests {
                 materials: Vec::new(),
                 look_from,
                 look_at,
-                fov: fov,
+                fov,
             }
         }
         pub fn add_material(&mut self, material: Material) -> MaterialRef {
