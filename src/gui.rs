@@ -8,8 +8,8 @@ use std::{
 
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::{
-    dpi::{LogicalSize},
-    event::VirtualKeyCode,
+    dpi::LogicalSize,
+    event::{DeviceEvent, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
@@ -94,10 +94,10 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
             .unwrap()
     };
 
+    // TODO This does not work, is it a WSL thing? Yes, yest it is. It works fine in windows
     window
-        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
+        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
         .unwrap();
-    // TODO This does not work, is it a WSL thing?
     window.set_cursor_visible(false);
 
     let state = {
@@ -126,6 +126,24 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
     event_loop.run(move |event, _, control_flow| {
         // For everything else, for let winit_input_helper collect events to build its state.
         // It returns `true` when it is time to update our game state and request a redraw.
+
+        if let winit::event::Event::DeviceEvent {
+            device_id: _,
+            event: DeviceEvent::MouseMotion {
+                delta: (x_diff, y_diff),
+            },
+        } = event
+        {
+            if x_diff.abs() > f64::EPSILON || y_diff.abs() > f64::EPSILON {
+                let mut state = state.lock().unwrap();
+
+                state.pitch += y_diff as Real / 5.0;
+                state.yaw += x_diff as Real / 5.0;
+                println!("pitch {}º Yaw {}º", state.pitch, state.yaw);
+                state.reload = true;
+            }
+        }
+
         if input.update(&event) {
             // Close events
             if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
@@ -152,16 +170,6 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
                 let mut state = state.lock().unwrap();
                 state.reload = true;
                 state.fov += 5.0;
-            }
-            let (x_diff, y_diff) = input.mouse_diff();
-
-            if x_diff.abs() > f32::EPSILON || y_diff.abs() > f32::EPSILON {
-                let mut state = state.lock().unwrap();
-
-                state.pitch += y_diff as Real / 5.0;
-                state.yaw += x_diff as Real / 5.0;
-                println!("pitch {}º Yaw {}º", state.pitch, state.yaw);
-                state.reload = true;
             }
 
             // Resize the window
