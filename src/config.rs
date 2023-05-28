@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Real, Vector};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub scene: String,
     pub ambient_color: Vector,

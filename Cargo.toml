@@ -12,11 +12,17 @@ image = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 time = "0.3.17"
-glam = { version = "0.22.0", features = ["serde", "rand", "fast-math"] }
+glam = { version = "*", features = ["serde", "rand", "fast-math"] }
 nanorand = "0.7.0"
+pixels = "*"
+winit = "*"
+winit_input_helper = "*"
+egui = "0.22.0"
+egui-wgpu = "0.22.0"
+egui-winit = "0.22.0"
 
 [dev-dependencies]
-easy-gltf = "0.1.5"
+easy-gltf = "*"
 
 [profile.release]
 debug = 1
@@ -30,3 +36,4 @@ overflow-checks = false
 
 [profile.dev.package."*"]
 opt-level = 3
+

@@ -12,6 +12,7 @@ pub struct Scene {
     pub look_at: Vector,
     pub fov: Real,
 }
+// TODO A scene should ONLY contain the shapes and materials!
 
 impl Scene {
 

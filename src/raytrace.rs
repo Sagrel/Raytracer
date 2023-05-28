@@ -1,5 +1,5 @@
 use nanorand::*;
-use rayon::{prelude::ParallelIterator, slice::ParallelSliceMut};
+use rayon::{prelude::{ParallelIterator, IndexedParallelIterator}, slice::ParallelSliceMut};
 
 use crate::{bvh::Bvh, camera::Camera, config::Config, scene::Scene, Real, Vector};
 
@@ -32,4 +32,17 @@ pub fn raytrace(config: &Config) -> impl IntoIterator<Item = Vector> {
         });
 
     pixels.into_iter().map(|(pixel, _)| pixel)
+}
+
+pub fn raytrace_in_place(screen: &mut [Vector], config: &Config, scene: &Scene, camera: &Camera, bvh: &Bvh) {
+    screen.par_chunks_exact_mut(config.width).enumerate().for_each(|(y, row)| {
+        let mut rng = nanorand::tls_rng();
+        for (x, pixel) in row.iter_mut().enumerate() {
+            let x_offset = (x as Real + rng.generate::<Real>()) / config.width as Real;
+            let y_offset = (y as Real + rng.generate::<Real>()) / config.height as Real;
+            let ray = camera.get_pixel(x_offset, y_offset);
+        
+            *pixel += ray.bounce(bvh, scene, &config.ambient_color, config.ttl);
+        }
+    });
 }

@@ -9,6 +9,7 @@ mod raytrace;
 mod scene;
 mod scene_gerenators;
 mod shapes;
+mod gui;
 
 use std::{fs::{File, self}, path::Path};
 use std::time::Instant;
@@ -23,6 +24,7 @@ use raytrace::*;
 use glam::*;
 
 type Vector = DVec3;
+type Matrix = DMat3;
 type Real = f64;
 
 fn main() {
@@ -35,6 +37,9 @@ fn main() {
         "Parameters: width = {} height = {} samples = {} ttl = {} chunk size = {}",
         config.width, config.height, config.samples, config.ttl, config.chunk_size
     );
+
+    gui::gui_mode(config.clone()).unwrap();
+
 
     let now = Instant::now();
     let pixels = raytrace(&config);
