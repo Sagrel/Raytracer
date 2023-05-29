@@ -11,15 +11,24 @@ rayon = "*"
 image = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
-time = "0.3.17"
+time = "*"
 glam = { version = "*", features = ["serde", "rand", "fast-math"] }
 nanorand = "0.7.0"
 pixels = "*"
-winit = "*"
-winit_input_helper = "*"
-egui = "0.22.0"
-egui-wgpu = "0.22.0"
-egui-winit = "0.22.0"
+winit = "0.27"
+winit_input_helper = "0.13"
+
+[dependencies.egui]
+git = "https://github.com/emilk/egui.git"
+rev = "f222ee044edf8beebfaf5dd7be15c9f318f20886"
+
+[dependencies.egui-wgpu]
+git = "https://github.com/emilk/egui.git"
+rev = "f222ee044edf8beebfaf5dd7be15c9f318f20886"
+
+[dependencies.egui-winit]
+git = "https://github.com/emilk/egui.git"
+rev = "f222ee044edf8beebfaf5dd7be15c9f318f20886"
 
 [dev-dependencies]
 easy-gltf = "*"

@@ -9,19 +9,20 @@ use std::{
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::{
     dpi::PhysicalSize,
-    event::{DeviceEvent, VirtualKeyCode},
+    event::{DeviceEvent, Event, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
     window::{CursorGrabMode, WindowBuilder},
 };
 use winit_input_helper::WinitInputHelper;
 
 use crate::{
-    bvh::Bvh, camera::Camera, config::Config, raytrace::raytrace_in_place, scene::Scene, Real,
-    Vector,
+    bvh::Bvh, camera::Camera, config::Config, debug_gui::DebugUi, raytrace::raytrace_in_place,
+    scene::Scene, Real, Vector,
 };
 
 struct UiState {
     pub pixels: Pixels,
+    pub debug_ui: DebugUi,
     // Keep the dimensions in a enum to indicate that it has been modified?
     pub size: PhysicalSize<u32>,
     pub pitch: Real,
@@ -48,11 +49,14 @@ fn worker_thread(state: Arc<Mutex<UiState>>, mut config: Config) {
                 config.height = state.size.height as usize;
                 let num_pixels = (state.size.width * state.size.height) as usize;
                 let size = state.size;
+                // TODO Should this resizing be done in the UI thread to avoid visual artifacts?
                 state.pixels.resize_buffer(size.width, size.height).unwrap();
                 state
                     .pixels
                     .resize_surface(size.width, size.height)
                     .unwrap();
+                state.debug_ui.resize(size.width, size.height);
+
                 if image.len() != num_pixels {
                     image = vec![Vector::default(); num_pixels];
                 } else {
@@ -65,7 +69,6 @@ fn worker_thread(state: Arc<Mutex<UiState>>, mut config: Config) {
             } else {
                 // Display whatever we have already
                 render_to_buffer(state.pixels.frame_mut(), &image, samples);
-                state.pixels.render().unwrap();
             }
             Camera::new_angles(
                 state.fov,
@@ -117,8 +120,17 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
             SurfaceTexture::new(size.width, size.height, &window),
         )?;
 
+        let debug_ui = DebugUi::new(
+            &event_loop,
+            size.width,
+            size.height,
+            window.scale_factor() as f32,
+            &pixels,
+        );
+
         Arc::new(Mutex::new(UiState {
             pixels,
+            debug_ui,
             size,
             pitch: 0.0,
             yaw: 0.0,
@@ -134,35 +146,19 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
     thread::spawn(move || worker_thread(state_clone, config));
 
     event_loop.run(move |event, _, control_flow| {
-        // For everything else, for let winit_input_helper collect events to build its state.
-        // It returns `true` when it is time to update our game state and request a redraw.
-
-        if !mouse_enabled {
-            if let winit::event::Event::DeviceEvent {
-                device_id: _,
-                event:
-                    DeviceEvent::MouseMotion {
-                        delta: (x_diff, y_diff),
-                    },
-            } = event
-            {
-                if x_diff.abs() > f64::EPSILON || y_diff.abs() > f64::EPSILON {
-                    let mut state = state.lock().unwrap();
-
-                    state.pitch += y_diff as Real / 5.0;
-                    state.yaw += x_diff as Real / 5.0;
-                    state.reload = true;
-                }
-            }
-        }
-
         if input.update(&event) {
             // Close events
-            if input.close_requested() {
+            if input.quit() {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
 
+            // Update the scale factor
+            if let Some(scale_factor) = input.scale_factor() {
+                state.lock().unwrap().debug_ui.scale_factor(scale_factor);
+            }
+
+            // Resize the window
             // Resize event
             if let Some(size) = input.window_resized() {
                 let mut state = state.lock().unwrap();
@@ -195,5 +191,54 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
                 state.fov += 5.0;
             }
         }
+
+        match event {
+            Event::WindowEvent { event, .. } => {
+                // Update egui inputs
+                state.lock().unwrap().debug_ui.handle_event(&event);
+            }
+            Event::RedrawRequested(_) => {
+                let mut state = state.lock().unwrap();
+                // Prepare egui
+                state.debug_ui.prepare(&window);
+                let UiState {
+                    pixels, debug_ui, ..
+                } = &mut *state;
+
+                // Render everything together
+                let render_result = pixels.render_with(|encoder, render_target, context| {
+                    // Render the world texture
+                    context.scaling_renderer.render(encoder, render_target);
+
+                    // Render egui
+                    debug_ui.render(encoder, render_target, context);
+
+                    Ok(())
+                });
+
+                // Basic error handling
+                if render_result.is_err() {
+                    *control_flow = ControlFlow::Exit;
+                }
+            }
+            Event::DeviceEvent {
+                device_id: _,
+                event:
+                    DeviceEvent::MouseMotion {
+                        delta: (x_diff, y_diff),
+                    },
+            } if !mouse_enabled && (x_diff.abs() > f64::EPSILON || y_diff.abs() > f64::EPSILON) => {
+                if x_diff.abs() > f64::EPSILON || y_diff.abs() > f64::EPSILON {
+                    let mut state = state.lock().unwrap();
+
+                    state.pitch += y_diff as Real / 5.0;
+                    state.yaw += x_diff as Real / 5.0;
+                    state.reload = true;
+                }
+            }
+            _ => (),
+        }
+
+        window.request_redraw();
     });
 }

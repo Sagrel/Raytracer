@@ -10,6 +10,7 @@ mod scene;
 mod scene_gerenators;
 mod shapes;
 mod gui;
+mod debug_gui;
 
 use std::{fs::{File, self}, path::Path};
 use std::time::Instant;
