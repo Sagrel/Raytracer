@@ -48,7 +48,13 @@ fn worker_thread(state: Arc<Mutex<UiState>>, config: Config) {
 
             // Check if the state has changed
             if state.reload {
-                image = vec![Vector::default(); state.width * state.height];
+                if image.len() != state.width * state.height {
+                    image = vec![Vector::default(); state.width * state.height];
+                } else {
+                    for pixel in image.iter_mut() {
+                        *pixel = Vector::default()
+                    }
+                }
                 samples = 0;
                 state.reload = false;
             }
