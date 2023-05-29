@@ -1,8 +1,10 @@
-use egui::{ClippedPrimitive, Context, TexturesDelta};
+use egui::{ClippedPrimitive, Context, Slider, TexturesDelta};
 use egui_wgpu::renderer::{Renderer, ScreenDescriptor};
 use pixels::{wgpu, PixelsContext};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::window::Window;
+
+use crate::Real;
 
 /// Manages all state required for rendering egui over `Pixels`.
 pub(crate) struct DebugUi {
@@ -76,12 +78,12 @@ impl DebugUi {
     }
 
     /// Prepare egui.
-    pub(crate) fn prepare(&mut self, window: &Window) {
+    pub(crate) fn prepare(&mut self, window: &Window, fov: &mut Real, redraw: &mut bool) {
         // Run the egui frame and create all paint jobs to prepare for rendering.
         let raw_input = self.egui_state.take_egui_input(window);
         let output = self.egui_ctx.run(raw_input, |egui_ctx| {
             // Draw the demo application.
-            self.gui.ui(egui_ctx);
+            self.gui.ui(egui_ctx, fov, redraw);
         });
 
         self.textures.append(output.textures_delta);
@@ -144,31 +146,14 @@ impl Gui {
     }
 
     /// Create the UI using egui.
-    fn ui(&mut self, ctx: &Context) {
-        egui::TopBottomPanel::top("menubar_container").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("About...").clicked() {
-                        self.window_open = true;
-                        ui.close_menu();
-                    }
-                })
-            });
-        });
-
-        egui::Window::new("Hello, egui!")
+    fn ui(&mut self, ctx: &Context, fov: &mut Real, redraw: &mut bool) {
+        // TODO Display samples per second, position, pitch and yaw, ...
+        // TODO Create a wrapper instead of passing 1000 different arguments... Maybe create that wrapper from the UiState directly with a method?
+        egui::Window::new("Inspector")
             .open(&mut self.window_open)
             .show(ctx, |ui| {
-                ui.label("This example demonstrates using egui with pixels.");
-                ui.label("Made with 💖 in San Francisco!");
-
-                ui.separator();
-
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x /= 2.0;
-                    ui.label("Learn more about egui at");
-                    ui.hyperlink("https://docs.rs/egui");
-                });
+                ui.label("FOV");
+                *redraw |= ui.add(Slider::new(fov, 10.0..=40.0)).changed();
             });
     }
 }

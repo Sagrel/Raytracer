@@ -20,7 +20,7 @@ use crate::{
     scene::Scene, Real, Vector,
 };
 
-struct UiState {
+pub(crate) struct UiState {
     pub pixels: Pixels,
     pub debug_ui: DebugUi,
     // Keep the dimensions in a enum to indicate that it has been modified?
@@ -199,11 +199,16 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
             }
             Event::RedrawRequested(_) => {
                 let mut state = state.lock().unwrap();
-                // Prepare egui
-                state.debug_ui.prepare(&window);
                 let UiState {
-                    pixels, debug_ui, ..
+                    pixels,
+                    debug_ui,
+                    fov,
+                    reload,
+                    ..
                 } = &mut *state;
+
+                // Prepare egui
+                debug_ui.prepare(&window, fov, reload);
 
                 // Render everything together
                 let render_result = pixels.render_with(|encoder, render_target, context| {
