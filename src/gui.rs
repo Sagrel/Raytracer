@@ -8,7 +8,7 @@ use std::{
 
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::{
-    dpi::LogicalSize,
+    dpi::PhysicalSize,
     event::{DeviceEvent, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
     window::{CursorGrabMode, WindowBuilder},
@@ -23,8 +23,7 @@ use crate::{
 struct UiState {
     pub pixels: Pixels,
     // Keep the dimensions in a enum to indicate that it has been modified?
-    pub width: usize,
-    pub height: usize,
+    pub size: PhysicalSize<u32>,
     pub pitch: Real,
     pub pos: Vector,
     pub fov: Real,
@@ -32,7 +31,7 @@ struct UiState {
     pub reload: bool,
 }
 
-fn worker_thread(state: Arc<Mutex<UiState>>, config: Config) {
+fn worker_thread(state: Arc<Mutex<UiState>>, mut config: Config) {
     let mut samples = 0;
     let mut image = Vec::new();
     let scene = Scene::read_scene(&config.scene);
@@ -41,15 +40,21 @@ fn worker_thread(state: Arc<Mutex<UiState>>, config: Config) {
     loop {
         let camera = {
             let mut state = state.lock().unwrap();
-
-            // Display whatever we have already
-            render_to_buffer(state.pixels.frame_mut(), &image, samples);
-            state.pixels.render().unwrap();
-
             // Check if the state has changed
+            // TODO this is not the best way of doing it probably...
             if state.reload {
-                if image.len() != state.width * state.height {
-                    image = vec![Vector::default(); state.width * state.height];
+                // TODO Modifying the config feels kind of dirty tbh
+                config.width = state.size.width as usize;
+                config.height = state.size.height as usize;
+                let num_pixels = (state.size.width * state.size.height) as usize;
+                let size = state.size;
+                state.pixels.resize_buffer(size.width, size.height).unwrap();
+                state
+                    .pixels
+                    .resize_surface(size.width, size.height)
+                    .unwrap();
+                if image.len() != num_pixels {
+                    image = vec![Vector::default(); num_pixels];
                 } else {
                     for pixel in image.iter_mut() {
                         *pixel = Vector::default()
@@ -57,13 +62,17 @@ fn worker_thread(state: Arc<Mutex<UiState>>, config: Config) {
                 }
                 samples = 0;
                 state.reload = false;
+            } else {
+                // Display whatever we have already
+                render_to_buffer(state.pixels.frame_mut(), &image, samples);
+                state.pixels.render().unwrap();
             }
             Camera::new_angles(
                 state.fov,
                 state.pitch,
                 state.yaw,
                 state.pos,
-                state.width as Real / state.height as Real,
+                state.size.width as Real / state.size.height as Real,
             )
         };
         // Raytrace
@@ -89,34 +98,28 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
     let event_loop = EventLoop::new();
     let mut input = WinitInputHelper::new();
 
+    let size = PhysicalSize::new(config.width as u32, config.height as u32);
     let window = {
-        let size = LogicalSize::new(config.width as f64, config.height as f64);
-        let scaled_size = LogicalSize::new(config.width as f64, config.height as f64);
         WindowBuilder::new()
             .with_title("Simple raytracer")
-            .with_inner_size(scaled_size)
-            .with_min_inner_size(size)
+            .with_inner_size(size)
             .build(&event_loop)
             .unwrap()
     };
-
-    // TODO This does not work, is it a WSL thing? Yes, yest it is. It works fine in windows
-    window
-        .set_cursor_grab(CursorGrabMode::Confined)
-        .unwrap();
+    // NOTE: This does not work in WSL...
+    window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
     window.set_cursor_visible(false);
 
     let state = {
-        let pixels = {
-            let window_size = window.inner_size();
-            let surface_texture =
-                SurfaceTexture::new(window_size.width, window_size.height, &window);
-            Pixels::new(config.width as u32, config.height as u32, surface_texture)?
-        };
+        let pixels = Pixels::new(
+            size.width,
+            size.height,
+            SurfaceTexture::new(size.width, size.height, &window),
+        )?;
+
         Arc::new(Mutex::new(UiState {
             pixels,
-            width: config.width,
-            height: config.height,
+            size,
             pitch: 0.0,
             yaw: 0.0,
             fov: 20.0,
@@ -159,14 +162,25 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
+
+            // Resize event
+            if let Some(size) = input.window_resized() {
+                let mut state = state.lock().unwrap();
+                state.reload = true;
+                state.size = size;
+            }
+
+            // Keyboard events
             if input.key_pressed(VirtualKeyCode::Escape) {
                 mouse_enabled = !mouse_enabled;
                 window.set_cursor_visible(mouse_enabled);
-                window.set_cursor_grab(if mouse_enabled {
-                    CursorGrabMode::None
-                } else {
-                    CursorGrabMode::Confined
-                }).unwrap();
+                window
+                    .set_cursor_grab(if mouse_enabled {
+                        CursorGrabMode::None
+                    } else {
+                        CursorGrabMode::Confined
+                    })
+                    .unwrap();
             }
 
             // TODO handle keyboard movement?
@@ -179,31 +193,6 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
                 let mut state = state.lock().unwrap();
                 state.reload = true;
                 state.fov += 5.0;
-            }
-            if input.key_pressed(VirtualKeyCode::W) {
-                let mut state = state.lock().unwrap();
-                state.reload = true;
-                state.pos.x += 0.5;
-            }
-            if input.key_pressed(VirtualKeyCode::E) {
-                let mut state = state.lock().unwrap();
-                state.reload = true;
-                state.fov += 5.0;
-            }
-
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                let mut state = state.lock().unwrap();
-                state.reload = true;
-                state.width = size.width as usize;
-                state.height = size.height as usize;
-                if state
-                    .pixels
-                    .resize_surface(size.width, size.height)
-                    .is_err()
-                {
-                    *control_flow = ControlFlow::Exit;
-                }
             }
         }
     });
