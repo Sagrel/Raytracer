@@ -11,7 +11,7 @@ use winit::{
     dpi::LogicalSize,
     event::{DeviceEvent, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::{CursorGrabMode, WindowBuilder},
 };
 use winit_input_helper::WinitInputHelper;
 
@@ -102,7 +102,7 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
 
     // TODO This does not work, is it a WSL thing? Yes, yest it is. It works fine in windows
     window
-        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+        .set_cursor_grab(CursorGrabMode::Confined)
         .unwrap();
     window.set_cursor_visible(false);
 
@@ -126,6 +126,7 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
     };
 
     let state_clone = state.clone();
+    let mut mouse_enabled = false;
 
     thread::spawn(move || worker_thread(state_clone, config));
 
@@ -133,29 +134,41 @@ pub fn gui_mode(config: Config) -> Result<(), Error> {
         // For everything else, for let winit_input_helper collect events to build its state.
         // It returns `true` when it is time to update our game state and request a redraw.
 
-        if let winit::event::Event::DeviceEvent {
-            device_id: _,
-            event: DeviceEvent::MouseMotion {
-                delta: (x_diff, y_diff),
-            },
-        } = event
-        {
-            if x_diff.abs() > f64::EPSILON || y_diff.abs() > f64::EPSILON {
-                let mut state = state.lock().unwrap();
+        if !mouse_enabled {
+            if let winit::event::Event::DeviceEvent {
+                device_id: _,
+                event:
+                    DeviceEvent::MouseMotion {
+                        delta: (x_diff, y_diff),
+                    },
+            } = event
+            {
+                if x_diff.abs() > f64::EPSILON || y_diff.abs() > f64::EPSILON {
+                    let mut state = state.lock().unwrap();
 
-                state.pitch += y_diff as Real / 5.0;
-                state.yaw += x_diff as Real / 5.0;
-                println!("pitch {}º Yaw {}º", state.pitch, state.yaw);
-                state.reload = true;
+                    state.pitch += y_diff as Real / 5.0;
+                    state.yaw += x_diff as Real / 5.0;
+                    state.reload = true;
+                }
             }
         }
 
         if input.update(&event) {
             // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
+            if input.close_requested() {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
+            if input.key_pressed(VirtualKeyCode::Escape) {
+                mouse_enabled = !mouse_enabled;
+                window.set_cursor_visible(mouse_enabled);
+                window.set_cursor_grab(if mouse_enabled {
+                    CursorGrabMode::None
+                } else {
+                    CursorGrabMode::Confined
+                }).unwrap();
+            }
+
             // TODO handle keyboard movement?
             if input.key_pressed(VirtualKeyCode::Q) {
                 let mut state = state.lock().unwrap();
