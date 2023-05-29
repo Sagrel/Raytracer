@@ -4,7 +4,7 @@ use pixels::{wgpu, PixelsContext};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::window::Window;
 
-use crate::Real;
+use crate::gui::CameraState;
 
 /// Manages all state required for rendering egui over `Pixels`.
 pub(crate) struct DebugUi {
@@ -78,12 +78,12 @@ impl DebugUi {
     }
 
     /// Prepare egui.
-    pub(crate) fn prepare(&mut self, window: &Window, fov: &mut Real, redraw: &mut bool) {
+    pub(crate) fn prepare(&mut self, window: &Window, camera: &mut CameraState, redraw: &mut bool) {
         // Run the egui frame and create all paint jobs to prepare for rendering.
         let raw_input = self.egui_state.take_egui_input(window);
         let output = self.egui_ctx.run(raw_input, |egui_ctx| {
             // Draw the demo application.
-            self.gui.ui(egui_ctx, fov, redraw);
+            self.gui.ui(egui_ctx, camera, redraw);
         });
 
         self.textures.append(output.textures_delta);
@@ -146,14 +146,14 @@ impl Gui {
     }
 
     /// Create the UI using egui.
-    fn ui(&mut self, ctx: &Context, fov: &mut Real, redraw: &mut bool) {
+    fn ui(&mut self, ctx: &Context, camera: &mut CameraState, redraw: &mut bool) {
         // TODO Display samples per second, position, pitch and yaw, ...
         // TODO Create a wrapper instead of passing 1000 different arguments... Maybe create that wrapper from the UiState directly with a method?
         egui::Window::new("Inspector")
             .open(&mut self.window_open)
             .show(ctx, |ui| {
                 ui.label("FOV");
-                *redraw |= ui.add(Slider::new(fov, 10.0..=40.0)).changed();
+                *redraw |= ui.add(Slider::new(&mut camera.fov, 10.0..=40.0)).changed();
             });
     }
 }
